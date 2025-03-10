@@ -1,0 +1,56 @@
+---
+title: "analyze_all_MultiLabs"
+author: "Jens Fuenderich"
+date: "2024-01-18"
+output: pdf_document
+---
+
+```{r dependencies}
+
+# Library Loading
+packages <- c("dplyr", 
+              "readr", 
+              "renv")
+
+# check, whether library already installed or not - install and load as needed:
+apply(as.matrix(packages), MARGIN = 1, FUN = function(x) {
+  
+  pkg_avail <- nzchar(system.file(package = x))   # check if library is installed on system
+  
+  if(pkg_avail){
+    require(x, character.only = TRUE)             # load the library, if already installed
+    
+  }else{
+    install.packages(x)                           # install the library, if missing
+    require(x, character.only = TRUE)             # load after installation
+  }
+})
+
+# GitHub packages 
+apply(as.matrix("MetaPipeX"), MARGIN = 1, FUN = function(x) {
+  
+  pkg_avail <- nzchar(system.file(package = x))   # check if library is installed on system
+  
+  if(pkg_avail){
+    require(x, character.only = TRUE)             # load MetaPipeX, if already installed
+    
+  }else{
+    renv::install("JensFuenderich/MetaPipeX/R-Package") # install MetaPipeX, if missing
+    require(x, character.only = TRUE)             # load after installation
+  }
+})
+
+rm(packages)
+
+```
+
+#### Meta-Analyses & Documentation of MD & SMD
+
+```{r MD & SMD}
+
+## sourcing the .R file runs the analyses and exports the documentation 
+# location of documentation: "data/processed/meta_analyses_MD_SMD" 
+# analyses & documentation with MetaPipeX 
+source("code/analyzing/analyze_MD_and_SMD.R")
+
+```

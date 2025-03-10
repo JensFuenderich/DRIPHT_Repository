@@ -1,0 +1,3262 @@
+---
+title: "DRIPHT_Repository"
+author: "Jens Fuenderich"
+date: "2024-01-18"
+output: pdf_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+# 1. Set-Up
+
+```{r dependencies}
+
+# Library Loading
+packages <- c("car", 
+              "devtools",
+              "dplyr", 
+              "foreign",
+              "gdata",
+              "googlesheets4",
+              "osfr", 
+              "psych",
+              "purrr",
+              "readr",
+              "readxl",
+              "stats", 
+              "stringr", 
+              "tidyr",
+              "utils")
+
+# check, whether library already installed or not - install and load as needed:
+apply(as.matrix(packages), MARGIN = 1, FUN = function(x) {
+  
+  pkg_avail <- nzchar(system.file(package = x))   # check if library is installed on system
+  
+  if(pkg_avail){
+    require(x, character.only = TRUE)             # load the library, if already installed
+    
+  }else{
+    install.packages(x)                           # install the library, if missing
+    require(x, character.only = TRUE)             # load after installation
+  }
+})
+
+# GitHub packages 
+apply(as.matrix("MetaPipeX"), MARGIN = 1, FUN = function(x) {
+  
+  pkg_avail <- nzchar(system.file(package = x))   # check if library is installed on system
+  
+  if(pkg_avail){
+    require(x, character.only = TRUE)             # load MetaPipeX, if already installed
+    
+  }else{
+    renv::install("JensFuenderich/MetaPipeX/R-Package") # install MetaPipeX, if missing
+    require(x, character.only = TRUE)             # load after installation
+  }
+})
+
+rm(packages)
+
+```
+
+# 2. Processing & .csv-Export
+
+## 2.1 Direct Replication Projects
+
+```{r create folder}
+
+# create directories for Direct Replication Projects
+dir.create(file.path("data/raw/Direct_Replications/"))
+dir.create(file.path("data/processed/Direct_Replications/"))
+
+```
+
+#### MultiLab: Dang et al (2021)
+
+Main Publication:
+<https://journals.sagepub.com/doi/full/10.1177/1948550619887702>
+
+Repository: <https://osf.io/3txav/>
+
+##### download raw data
+
+```{r prepare Dang_2021}
+
+# create directories for Dang_2021
+dir.create(file.path("data/raw/Direct_Replications/Dang_2021"))
+dir.create(file.path("data/processed/Direct_Replications/Dang_2021"))
+
+
+# create download function 
+OSF_download_fun <- function(OSF_path){
+  osfr::osf_retrieve_file(OSF_path) %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/Direct_Replications/Dang_2021"), 
+                     conflicts = "overwrite")
+}
+
+# store download links 
+OSF_paths <- c("cy47n", 
+               "wsnxy", 
+               "gk7cd", 
+               "ftr5x", 
+               "rc4sx", 
+               "prf5t", 
+               "ngmzk", 
+               "8mhk5", 
+               "c4huz", 
+               "2km95", 
+               "kjg96", 
+               "p7246")
+
+# download data 
+lapply(OSF_paths, OSF_download_fun)
+
+# identify the paths to the replication data files
+paths <- list.files(file.path("data/raw/Direct_Replications/Dang_2021/"), 
+                    pattern = "*.sav$", 
+                    full.names = TRUE)
+
+# import data: Dang_2021
+Dang_2021_data <- lapply(paths, function(x){as.data.frame(foreign::read.spss(x))})
+
+names(Dang_2021_data) <- stringr::str_extract(paths, pattern = "//(\\w+)", group = 1)
+
+# keep the global environment tidy 
+rm(paths, OSF_paths, OSF_download_fun)
+
+```
+
+##### process raw data
+
+```{r processing Dang_2021}
+
+###
+## MASC: Dang2017 
+
+# create directories for Dang2017 
+dir.create(file.path("data/processed/Direct_Replications/Dang_2021/Dang2017"))
+
+# source processing script / function 
+source(file.path("code/processing/Dang_2021/Dang_2021__Dang2017.R"))
+
+# create item & ipd level data
+convert_raw_data_Dang2017_fun(data = Dang_2021_data, 
+                              output_folder = file.path("data/processed/Direct_Replications/Dang_2021/Dang2017"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/Dang_2021/Dang2017/Dang_2021__Dang2017__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/Dang_2021/Dang2017/"), 
+  suppress_list_output = TRUE)
+
+###
+# keep the global environment tidy 
+rm(Dang_2021_data)
+# delete functions 
+rm(convert_raw_data_Dang2017_fun)
+
+```
+
+#### Many Labs 1
+
+Main Publication:
+<https://econtent.hogrefe.com/doi/10.1027/1864-9335/a000178>
+
+Repository: [https://osf.io/wx7ck/](https://osf.io/wx7ck)
+
+##### download raw data
+
+```{r prepare ML1}
+
+# create directories for ML1
+dir.create(file.path("data/raw/Direct_Replications/ManyLabs_1"))
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_1"))
+
+# download data 
+ML1_download <- osfr::osf_retrieve_file("nqg97") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/Direct_Replications/ManyLabs_1"), 
+                     conflicts = "overwrite")
+
+# unzip data 
+utils::unzip(zipfile = ML1_download$local_path, 
+             exdir = file.path("data/raw/Direct_Replications/ManyLabs_1"))
+
+# import data: ML1 
+ML1_data <- as.data.frame(foreign::read.spss("data/raw/Direct_Replications/ManyLabs_1/Data/CleanedDataset.sav"))
+
+# import raw data: ML1 
+ML1_data_raw <- as.data.frame(foreign::read.spss("data/raw/Direct_Replications/ManyLabs_1/Data/Full_Dataset_De-Identified.sav"))
+
+# keep the global environment tidy 
+rm(ML1_download)
+
+```
+
+##### process raw data
+
+###### currently I use the preprocessed .sav (briefly tried the raw file for Caruso and was not able to recreate the subsample (I arrive at something like N = 6208))
+
+```{r processing ML1}
+
+###
+## MASC: Flag Priming (Carter, Ferguson, & Hassin, 2011; Study 2)
+## This version uses the same subset as the meta-analysis in the publication.
+
+# create directories for Carter 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_1/Carter"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_1/ManyLabs_1__Carter.R"))
+
+# create item & ipd level data
+convert_raw_data_Carter_fun(data = ML1_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/ManyLabs_1/Carter"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_1/Carter/ML1__Carter__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_1/Carter/"), 
+  suppress_list_output = TRUE)
+
+
+###
+## MASC: Flag Priming (Carter, Ferguson, & Hassin, 2011; Study 2) 
+## Close(r) Replication Version: This version uses a subset that is reduced to replications from the USA to achieve a close(r) replication.
+
+# create directories for Carter_CR 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_1/Carter_CR"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_1/ManyLabs_1__Carter_CR.R"))
+
+# create item & ipd level data
+convert_raw_data_Carter_CR_fun(data = ML1_data, 
+                               output_folder = file.path(
+                                 "data/processed/Direct_Replications/ManyLabs_1/Carter_CR"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_1/Carter_CR/ML1__Carter_CR__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_1/Carter_CR/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Currency priming (Caruso, Vohs, Baxter, & Waytz, 2013) 
+
+# create directories for Caruso 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_1/Caruso"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_1/ManyLabs_1__Caruso.R"))
+
+# create item & ipd level data
+convert_raw_data_Caruso_fun(data = ML1_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/ManyLabs_1/Caruso"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_1/Caruso/ML1__Caruso__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_1/Caruso/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Imagined contact (Husnu & Crisp, 2010; Study 1) 
+
+# create directories for Husnu 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_1/Husnu"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_1/ManyLabs_1__Husnu.R"))
+
+# create item & ipd level data
+convert_raw_data_Husnu_fun(data = ML1_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/ManyLabs_1/Husnu"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_1/Husnu/ML1__Husnu__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_1/Husnu/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Anchoring (Births) (Jacowitz & Kahneman, 1995)
+
+# create directories for Jacowitz_Births
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_1/Jacowitz_Births"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_1/ManyLabs_1__Jacowitz_Births.R"))
+
+# create item & ipd level data
+convert_raw_data_Jacowitz_Births_fun(data = ML1_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/ManyLabs_1/Jacowitz_Births"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_1/Jacowitz_Births/ML1__Jacowitz_Births__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_1/Jacowitz_Births/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Anchoring (Distance) (Jacowitz & Kahneman, 1995)
+
+# create directories for Jacowitz_Births
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_1/Jacowitz_Distance"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_1/ManyLabs_1__Jacowitz_Distance.R"))
+
+# create item & ipd level data
+convert_raw_data_Jacowitz_Distance_fun(data = ML1_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/ManyLabs_1/Jacowitz_Distance"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path(
+      "data/processed/Direct_Replications/ManyLabs_1/Jacowitz_Distance/ML1__Jacowitz_Distance__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_1/Jacowitz_Distance/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Anchoring (Height) (Jacowitz & Kahneman, 1995)
+
+# create directories for Jacowitz_Height
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_1/Jacowitz_Height"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_1/ManyLabs_1__Jacowitz_Height.R"))
+
+# create item & ipd level data
+convert_raw_data_Jacowitz_Height_fun(data = ML1_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/ManyLabs_1/Jacowitz_Height"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_1/Jacowitz_Height/ML1__Jacowitz_Height__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_1/Jacowitz_Height/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Anchoring (Population) (Jacowitz & Kahneman, 1995)
+
+# create directories for Jacowitz_Population
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_1/Jacowitz_Population"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_1/ManyLabs_1__Jacowitz_Population.R"))
+
+# create item & ipd level data
+convert_raw_data_Jacowitz_Population_fun(data = ML1_data, 
+                            output_folder = file.path(
+                              "data/processed/Direct_Replications/ManyLabs_1/Jacowitz_Population"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path(
+      "data/processed/Direct_Replications/ManyLabs_1/Jacowitz_Population/ML1__Jacowitz_Population__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_1/Jacowitz_Population/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Sex differences in implicit math attitudes (Nosek, Banaji, & Greenwald, 2002)
+
+# create directories for Nosek1
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_1/Nosek1"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_1/ManyLabs_1__Nosek1.R"))
+
+# create item & ipd level data
+convert_raw_data_Nosek1_fun(data = ML1_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/ManyLabs_1/Nosek1"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_1/Nosek1/ML1__Nosek1__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_1/Nosek1/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Quote Attribution (Lorge & Curtiss, 1936)
+
+# create directories for Lorge
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_1/Lorge"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_1/ManyLabs_1__Lorge.R"))
+
+# create item & ipd level data
+convert_raw_data_Lorge_fun(data = ML1_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/ManyLabs_1/Lorge"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_1/Lorge/ML1__Lorge__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_1/Lorge/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Sunk costs (Oppenheimer, Meyvis, & Davidenko, 2009)
+
+# create directories for Oppenheimer_Meyvis
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_1/Oppenheimer_Meyvis"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_1/ManyLabs_1__Oppenheimer_Meyvis.R"))
+
+# create item & ipd level data
+convert_raw_data_Oppenheimer_Meyvis_fun(data = ML1_data, 
+                            output_folder = file.path(
+                              "data/processed/Direct_Replications/ManyLabs_1/Oppenheimer_Meyvis"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path(
+      "data/processed/Direct_Replications/ManyLabs_1/Oppenheimer_Meyvis/ML1__Oppenheimer_Meyvis__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_1/Oppenheimer_Meyvis/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Retrospective gambler’s fallacy (Oppenheimer & Monin, 2009)
+
+# create directories for Oppenheimer_Monin
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_1/Oppenheimer_Monin"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_1/ManyLabs_1__Oppenheimer_Monin.R"))
+
+# create item & ipd level data
+convert_raw_data_Oppenheimer_Monin_fun(data = ML1_data, 
+                            output_folder = file.path(
+                              "data/processed/Direct_Replications/ManyLabs_1/Oppenheimer_Monin"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path(
+      "data/processed/Direct_Replications/ManyLabs_1/Oppenheimer_Monin/ML1__Oppenheimer_Monin__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_1/Oppenheimer_Monin/"), 
+  suppress_list_output = TRUE)
+
+###
+# keep the global environment tidy 
+rm(ML1_data, ML1_data_raw)
+
+# delete functions 
+rm(convert_raw_data_Carter_fun, 
+   convert_raw_data_Carter_CR_fun, 
+   convert_raw_data_Caruso_fun, 
+   convert_raw_data_Husnu_fun, 
+   convert_raw_data_Jacowitz_Births_fun, 
+   convert_raw_data_Jacowitz_Distance_fun, 
+   convert_raw_data_Jacowitz_Height_fun, 
+   convert_raw_data_Jacowitz_Population_fun, 
+   convert_raw_data_Nosek1_fun, 
+   convert_raw_data_Lorge_fun, 
+   convert_raw_data_Oppenheimer_Meyvis_fun, 
+   convert_raw_data_Oppenheimer_Monin_fun)
+
+```
+
+#### Many Labs 2
+
+Main Publication:
+<https://journals.sagepub.com/doi/10.1177/2515245918810225>
+
+Repository: <https://osf.io/8cd4r/>
+
+##### download raw data
+
+```{r prepare ML2}
+
+# create directories for ML2 
+dir.create(file.path("data/raw/Direct_Replications/ManyLabs_2"))
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2"))
+
+# download data for slate 1 
+ML2_slate1_download <- osfr::osf_retrieve_file("cwjp3") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/Direct_Replications/ManyLabs_2"), 
+                     conflicts = "overwrite")
+
+# download data for slate 2
+ML2_slate2_download <- osfr::osf_retrieve_file("jg9hc") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/Direct_Replications/ManyLabs_2"), 
+                     conflicts = "overwrite")
+
+# import data: ML2 slate 1 
+ML2_S1 <- readr::read_csv(ML2_slate1_download$local_path) 
+
+# import data: ML2 slate 2
+ML2_S2 <- readr::read_csv(ML2_slate2_download$local_path) 
+
+# import important variable information and store in raw data folder
+googlesheets4::gs4_deauth()
+ML2_masteRkey <- googlesheets4::read_sheet("https://docs.google.com/spreadsheets/d/1fqK3WHwFPMIjNVVvmxpMEjzUETftq_DmP5LzEhXxUHA/edit#gid=769239110")  
+readr::write_csv(ML2_masteRkey, 
+                 file.path("data/raw/Direct_Replications/ManyLabs_2/ML2_masteRkey.csv"))
+
+# keep the global environment tidy 
+rm(ML2_slate1_download, ML2_slate2_download)
+
+```
+
+##### process raw data
+
+```{r processing ML2}
+
+###
+## MASC: Alter (Alter et al., 2007, Study 4)
+## This version applies the subset used in the meta-analysis of the ML2 publication
+
+# create directories for Alter 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Alter"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Alter.R"))
+
+# create item & ipd level data
+convert_raw_data_Alter_fun(data = ML2_S1, 
+                              variable_info = ML2_masteRkey, 
+                              output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Alter"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Alter/ML2__Alter__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Alter/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Alter_CR (Alter et al., 2007, Study 4)
+## Close(r) Replication Version: This version uses a subset that is reduced to those sites that administered the test in English and as in-lab samples to achieve a close(r) replications. 
+
+# create directories for Alter_CR 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Alter_CR"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Alter_CR.R"))
+
+# create item & ipd level data
+convert_raw_data_Alter_CR_fun(data = ML2_S1, 
+                              variable_info = ML2_masteRkey, 
+                              output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Alter_CR"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Alter_CR/ML2__Alter_CR__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Alter_CR/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Anderson (Anderson & Schubert, 2007, Study 1a)
+
+# create directories for Anderson 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Anderson"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Anderson.R"))
+
+# create item & ipd level data
+convert_raw_data_Anderson_fun(data = ML2_S1, 
+                              variable_info = ML2_masteRkey, 
+                              output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Anderson"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Anderson/ML2__Anderson__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Anderson/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Bauer (Bauer, Wilkie, Kim, & Bodenhausen, 2012, Study 4)
+
+# create directories for Bauer 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Bauer"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Bauer.R"))
+
+# create item & ipd level data
+convert_raw_data_Bauer_fun(data = ML2_S1, 
+                           # variable_info = ML2_masteRkey, 
+                           output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Bauer"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Bauer/ML2__Bauer__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Bauer/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Critcher (Critcher & Gilovich, 2008, Study 2)
+
+# create directories for Critcher 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Critcher"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Critcher.R"))
+
+# create item & ipd level data
+convert_raw_data_Critcher_fun(data = ML2_S1, 
+                           # variable_info = ML2_masteRkey, 
+                           output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Critcher"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Critcher/ML2__Critcher__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Critcher/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Gati (Tversky & Gati, 1978, Study 2)
+
+# The primary replication of Tversky & Gati is a within design. We compared the average similarity ratings.
+
+# create directories for Gati 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Gati"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Gati.R"))
+
+# create item & ipd level data
+convert_raw_data_Gati_fun(data = ML2_S2, 
+                              variable_info = ML2_masteRkey, 
+                              output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Gati"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Gati/ML2__Gati__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Gati/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Giessner (Giessner & Schubert, 2007, Study 1a)
+
+# create directories for Giessner 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Giessner"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Giessner.R"))
+
+# create item & ipd level data
+convert_raw_data_Giessner_fun(data = ML2_S2, 
+                              variable_info = ML2_masteRkey, 
+                              output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Giessner"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Giessner/ML2__Giessner__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Giessner/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Gray (Gray & Wegner, 2009, Study 1a)
+
+# create directories for Gray 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Gray"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Gray.R"))
+
+# create item & ipd level data
+convert_raw_data_Gray_fun(data = ML2_S2, 
+                           # variable_info = ML2_masteRkey, 
+                           output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Gray"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Gray/ML2__Gray__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Gray/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Hsee (Hsee, 1998, Study 1)
+
+# create directories for Hsee 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Hsee"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Hsee.R"))
+
+# create item & ipd level data
+convert_raw_data_Hsee_fun(data = ML2_S2, 
+                           # variable_info = ML2_masteRkey, 
+                           output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Hsee"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Hsee/ML2__Hsee__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Hsee/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Huang (Huang et al., 2014, Study 1a)
+## This version applies the subset used in the meta-analysis of the ML2 publication.
+
+# create directories for Huang 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Huang"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Huang.R"))
+
+# create item & ipd level data
+convert_raw_data_Huang_fun(data = ML2_S1, 
+                           # variable_info = ML2_masteRkey, 
+                           output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Huang"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Huang/ML2__Huang__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Huang/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Huang_CR (Huang et al., 2014, Study 1a)
+## Close(r) Replication Version: This version uses a subset that is reduced to "selecting only those participants, across all samples, who indicated that wealth tended to be in the north in their hometown" to achieve a close(r) replication. 
+
+# create directories for Huang_CR 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Huang_CR"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Huang_CR.R"))
+
+# create item & ipd level data
+convert_raw_data_Huang_CR_fun(data = ML2_S1, 
+                           # variable_info = ML2_masteRkey, 
+                           output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Huang_CR"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Huang_CR/ML2__Huang_CR__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Huang_CR/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Inbar (Inbar et al., 2009, Study 1)
+
+# The primary replication of Inbar et al. is a correlational design. We replicated the difference in intentionality ratings between the SameKiss and DiffKiss condition. 
+
+# create directories for Inbar 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Inbar"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Inbar.R"))
+
+# create item & ipd level data
+convert_raw_data_Inbar_fun(data = ML2_S1, 
+                           # variable_info = ML2_masteRkey, 
+                           output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Inbar"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Inbar/ML2__Inbar__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Inbar/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Kay (Kay, Laurin, Fitzsimons, & Landau, 2014, Study 2)
+
+# create directories for Kay 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Kay"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Kay.R"))
+
+# create item & ipd level data
+convert_raw_data_Kay_fun(data = ML2_S1, 
+                           # variable_info = ML2_masteRkey, 
+                           output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Kay"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Kay/ML2__Kay__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Kay/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Knobe (Knobe, 2003, Study 1)
+
+# create directories for Knobe 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Knobe"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Knobe.R"))
+
+# create item & ipd level data
+convert_raw_data_Knobe_fun(data = ML2_S2, 
+                           # variable_info = ML2_masteRkey, 
+                           output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Knobe"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Knobe/ML2__Knobe__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Knobe/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Risen (Risen & Gilovich, 2008, Study 2)
+## This version applies the subset used in the meta-analysis of the ML2 publication.
+
+# create directories for Risen 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Risen"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Risen.R"))
+
+# create item & ipd level data
+convert_raw_data_Risen_fun(data = ML2_S2, 
+                           # variable_info = ML2_masteRkey, 
+                           output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Risen"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Risen/ML2__Risen__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Risen/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Risen_CR (Risen & Gilovich, 2008, Study 2)
+## Close(r) Replication Version: This version uses a subset that is reduced to only undergraduate students across all samples, to achieve a close(r) replication.
+
+# create directories for Risen_CR 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Risen_CR"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Risen_CR.R"))
+
+# create item & ipd level data
+convert_raw_data_Risen_CR_fun(data = ML2_S2, 
+                              # variable_info = ML2_masteRkey, 
+                              output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Risen_CR"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Risen_CR/ML2__Risen_CR__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Risen_CR/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Ross1 (Ross, Greene, & House, 1977, Study 1)
+
+# create directories for Ross1 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Ross1"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Ross1.R"))
+
+# create item & ipd level data
+convert_raw_data_Ross1_fun(data = ML2_S1, 
+                           # variable_info = ML2_masteRkey, 
+                           output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Ross1"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Ross1/ML2__Ross1__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Ross1/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Ross2 (Ross et al., 1977, Study 1)
+
+# create directories for Ross2 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Ross2"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Ross2.R"))
+
+# create item & ipd level data
+convert_raw_data_Ross2_fun(data = ML2_S2, 
+                           # variable_info = ML2_masteRkey, 
+                           output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Ross2"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Ross2/ML2__Ross2__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Ross2/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Zaval (Zaval, Keenan, Johnson, & Weber, 2014, Study 3a)
+## This version applies the subset used in the meta-analysis of the ML2 publication.
+
+# create directories for Zaval 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Zaval"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Zaval.R"))
+
+# create item & ipd level data
+convert_raw_data_Zaval_fun(data = ML2_S2, 
+                           # variable_info = ML2_masteRkey, 
+                           output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Zaval"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Zaval/ML2__Zaval__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Zaval/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Zaval_CR (Zaval, Keenan, Johnson, & Weber, 2014, Study 3a)
+## Close(r) Replication Version: This version uses a subset that is reduced to those sites that administered the test in English to achieve a close(r) replication.
+
+# create directories for Zaval 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Zaval_CR"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Zaval_CR.R"))
+
+# create item & ipd level data
+convert_raw_data_Zaval_CR_fun(data = ML2_S2, 
+                           # variable_info = ML2_masteRkey, 
+                           output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Zaval_CR"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Zaval_CR/ML2__Zaval_CR__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Zaval_CR/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Moral violations and desire for cleansing (Zhong & Liljenquist, 2006)
+
+# create directories for Zhong 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_2/Zhong"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_2/ManyLabs_2__Zhong.R"))
+
+# create item & ipd level data
+convert_raw_data_Zhong_fun(data = ML2_S2, 
+                           # variable_info = ML2_masteRkey, 
+                           output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Zhong"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_2/Zhong/ML2__Zhong__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_2/Zhong/"), 
+  suppress_list_output = TRUE)
+
+###
+# keep the global environment tidy 
+rm(ML2_S1, ML2_S2, ML2_masteRkey)
+# delete functions 
+rm(convert_raw_data_Alter_fun, 
+   convert_raw_data_Alter_CR_fun,
+   convert_raw_data_Anderson_fun, 
+   convert_raw_data_Bauer_fun, 
+   convert_raw_data_Critcher_fun, 
+   convert_raw_data_Gati_fun, 
+   convert_raw_data_Giessner_fun,
+   convert_raw_data_Gray_fun, 
+   convert_raw_data_Hsee_fun, 
+   convert_raw_data_Huang_fun, 
+   convert_raw_data_Huang_CR_fun, 
+   convert_raw_data_Inbar_fun, 
+   convert_raw_data_Kay_fun, 
+   convert_raw_data_Knobe_fun, 
+   convert_raw_data_Risen_fun, 
+   convert_raw_data_Risen_CR_fun,
+   convert_raw_data_Ross1_fun, 
+   convert_raw_data_Ross2_fun, 
+   convert_raw_data_Zaval_fun, 
+   convert_raw_data_Zaval_CR_fun, 
+   convert_raw_data_Zhong_fun)
+
+```
+
+#### Many Labs 3
+
+Main Publication:
+<https://www.sciencedirect.com/science/article/abs/pii/S0022103115300123>
+
+Repository: <https://osf.io/ct89g/>
+
+##### download raw data
+
+```{r prepare ML3}
+
+# create directories for ML3
+dir.create(file.path("data/raw/Direct_Replications/ManyLabs_3"))
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_3"))
+
+# download data 
+ML3_download <- osfr::osf_retrieve_file("bxw8j") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/Direct_Replications/ManyLabs_3"), 
+                     conflicts = "overwrite")
+
+# download important variable information (Ross3) 
+osfr::osf_retrieve_file("64z7s") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/Direct_Replications/ManyLabs_3"), 
+                     conflicts = "overwrite")
+
+# unzip data 
+utils::unzip(zipfile = ML3_download$local_path, 
+             exdir = file.path("data/raw/Direct_Replications/ManyLabs_3"))
+
+# import data: ML3
+ML3_data <- readr::read_csv("data/raw/Direct_Replications/ManyLabs_3/ML3 Final Data/ML3AllSitesandmTurk.csv")
+
+# import variable information (Ross3):
+ML3_variable_info <- readr::read_csv("data/raw/Direct_Replications/ManyLabs_3/ML3 SESD Open Response.csv")
+
+
+# keep the global environment tidy 
+rm(ML3_download)
+
+```
+
+##### process raw data
+
+```{r processing ML3}
+
+
+###
+## MASC: Power and perspectives not taken (Galinsky, Magee, Inesi, & Gruenfeld, 2006, study 2a)
+
+# create directories for Galinsky 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_3/Galinsky"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_3/ManyLabs_3__Galinsky.R"))
+
+# create item & ipd level data
+convert_raw_data_Galinsky_fun(data = ML3_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/ManyLabs_3/Galinsky"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_3/Galinsky/ML3__Galinsky__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_3/Galinsky/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Weight as an embodiment of importance (Jostmann, Lakens, & Schubert, 2009, study 2)
+
+# create directories for Jostmann 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_3/Jostmann"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_3/ManyLabs_3__Jostmann.R"))
+
+# create item & ipd level data
+convert_raw_data_Jostmann_fun(data = ML3_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/ManyLabs_3/Jostmann"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_3/Jostmann/ML3__Jostmann__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_3/Jostmann/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Moral credentials and the expression of prejudice (Monin & Miller, 2001, study 1)
+
+# create directories for Monin 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_3/Monin"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_3/ManyLabs_3__Monin.R"))
+
+# create item & ipd level data
+convert_raw_data_Monin_fun(data = ML3_data, 
+                           output_folder = file.path("data/processed/Direct_Replications/ManyLabs_3/Monin"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_3/Monin/ML3__Monin__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_3/Monin/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: It feels like yesterday: self-esteem, valence of personal past experiences, and judgments of subjective distance (Ross & Wilson, 2002, study 2)
+
+# create directories for Ross 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_3/Ross3"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_3/ManyLabs_3__Ross3.R"))
+
+# create item & ipd level data
+convert_raw_data_Ross3_fun(data = ML3_data, 
+                           variable_info = ML3_variable_info,
+                           output_folder = file.path("data/processed/Direct_Replications/ManyLabs_3/Ross3"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_3/Ross3/ML3__Ross3__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_3/Ross3/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Warmer hearts, warmer rooms (Szymkow, Chandler, IJzerman, Parzuchowski, & Wojciszke, 2013, study 1)
+
+# create directories for Szymkow 
+dir.create(file.path("data/processed/Direct_Replications/ManyLabs_3/Szymkow"))
+
+# source processing script / function 
+source(file.path("code/processing/ManyLabs_3/ManyLabs_3__Szymkow.R"))
+
+# create item & ipd level data
+convert_raw_data_Szymkow_fun(data = ML3_data, 
+                           variable_info = ML3_variable_info,
+                           output_folder = file.path("data/processed/Direct_Replications/ManyLabs_3/Szymkow"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/ManyLabs_3/Szymkow/ML3__Szymkow__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/ManyLabs_3/Szymkow/"), 
+  suppress_list_output = TRUE)
+
+###
+# keep the global environment tidy 
+rm(ML3_data, ML3_variable_info)
+# delete functions 
+rm(convert_raw_data_Galinsky_fun, 
+   convert_raw_data_Jostmann_fun, 
+   convert_raw_data_Monin_fun, 
+   convert_raw_data_Ross3_fun, 
+   convert_raw_data_Szymkow_fun)
+
+```
+
+#### RRR01
+
+Main Publication:
+<https://journals.sagepub.com/doi/10.1177/1745691614545653>
+
+Repository: <https://osf.io/ybeur/>
+
+##### does not align with my selection criteria
+
+#### RRR02
+
+Main Publication:
+<https://journals.sagepub.com/doi/10.1177/1745691614545653>
+
+Repository: <https://osf.io/ybeur/>
+
+##### does not align with my selection criteria
+
+#### RRR_03
+
+Main Publication:
+<https://journals.sagepub.com/doi/10.1177/1745691615605826>
+
+Repository: <https://osf.io/d3mw4/>
+
+##### download raw data
+
+```{r prepare RRR_03}
+
+# create directories for RRR_03
+dir.create(file.path("data/raw/Direct_Replications/RRR_03"))
+dir.create(file.path("data/processed/Direct_Replications/RRR_03"))
+
+
+# create download function 
+OSF_download_fun <- function(OSF_path){
+  osfr::osf_retrieve_file(OSF_path) %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/Direct_Replications/RRR_03"), 
+                     conflicts = "overwrite")
+}
+
+# store download links 
+OSF_paths <- c("rbaup", 
+               "pyr4u", 
+               "b8qtg",
+               "vs524", 
+               "qgt3c", 
+               "ecm5u", 
+               "4ma3c", 
+               "9e3tz", 
+               "sz6yb", 
+               "78gdv", 
+               "m7rjc", 
+               "ts2ap")
+
+# download data 
+lapply(OSF_paths, OSF_download_fun)
+
+# identify the paths to the replication data files
+paths <- list.files(file.path("data/raw/Direct_Replications/RRR_03/"), 
+                    pattern = "*.sav$", 
+                    full.names = TRUE)
+
+# import data: RRR03
+RRR_03_data <- lapply(paths, function(x){as.data.frame(foreign::read.spss(x))})
+names(RRR_03_data) <- stringr::str_extract(paths, pattern = "//(\\w+)", group = 1)
+
+# keep the global environment tidy 
+rm(OSF_paths, paths, OSF_download_fun)
+
+```
+
+##### process raw data
+
+```{r processing RRR03}
+
+###
+## MASC: Hart1 
+
+# create directories for Hart1 
+dir.create(file.path("data/processed/Direct_Replications/RRR_03/Hart1"))
+
+# source processing script / function 
+source(file.path("code/processing/RRR_03/RRR_03__Hart1.R"))
+
+# create item & ipd level data
+convert_raw_data_Hart1_fun(data = RRR_03_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/RRR_03/Hart1"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/RRR_03/Hart1/RRR_03__Hart1__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/RRR_03/Hart1/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Hart2
+
+# create directories for Hart2 
+dir.create(file.path("data/processed/Direct_Replications/RRR_03/Hart2"))
+
+# source processing script / function 
+source(file.path("code/processing/RRR_03/RRR_03__Hart2.R"))
+
+# create item & ipd level data
+convert_raw_data_Hart2_fun(data = RRR_03_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/RRR_03/Hart2"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/RRR_03/Hart2/RRR_03__Hart2__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/RRR_03/Hart2/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Hart3
+
+# create directories for Hart3
+dir.create(file.path("data/processed/Direct_Replications/RRR_03/Hart3"))
+
+# source processing script / function 
+source(file.path("code/processing/RRR_03/RRR_03__Hart3.R"))
+
+# create item & ipd level data
+convert_raw_data_Hart3_fun(data = RRR_03_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/RRR_03/Hart3"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/RRR_03/Hart3/RRR_03__Hart3__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/RRR_03/Hart3/"), 
+  suppress_list_output = TRUE)
+
+###
+# keep the global environment tidy 
+rm(RRR_03_data)
+# delete functions 
+rm(convert_raw_data_Hart1_fun, 
+   convert_raw_data_Hart2_fun, 
+   convert_raw_data_Hart3_fun)
+
+```
+
+#### RRR_04
+
+Main Publication:
+<https://journals.sagepub.com/doi/10.1177/1745691616652873>
+
+Repository: <https://osf.io/jymhe/>
+
+##### download raw data
+
+```{r prepare RRR_04}
+
+# create directories for RRR_04
+dir.create(file.path("data/raw/Direct_Replications/RRR_04"))
+dir.create(file.path("data/processed/Direct_Replications/RRR_04"))
+
+# download data 
+RRR_04_download <- osfr::osf_retrieve_file("t3mns") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/Direct_Replications/RRR_04"), 
+                     conflicts = "overwrite")
+
+# import data: RRR_04
+RRR_04_data <- readr::read_csv(RRR_04_download$local_path) 
+
+# keep the global environment tidy 
+rm(RRR_04_download)
+
+```
+
+##### process raw data
+
+```{r processing RRR_04}
+
+###
+## MASC: Sripada 
+
+# create directories for Sripada 
+dir.create(file.path("data/processed/Direct_Replications/RRR_04/Sripada"))
+
+# source processing script / function 
+source(file.path("code/processing/RRR_04/RRR_04__Sripada.R"))
+
+# create item & ipd level data
+convert_raw_data_Sripada_fun(data = RRR_04_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/RRR_04/Sripada"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/RRR_04/Sripada/RRR_04__Sripada__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/RRR_04/Sripada/"), 
+  suppress_list_output = TRUE)
+
+###
+# keep the global environment tidy 
+rm(RRR_04_data)
+# delete functions 
+rm(convert_raw_data_Sripada_fun)
+
+```
+
+#### RRR_05
+
+Main Publication:
+<https://journals.sagepub.com/doi/10.1177/1745691616664694>
+
+Repository: <https://osf.io/s3hfr/>
+
+##### download raw data
+
+```{r prepare RRR_05}
+
+# create directories for RRR_05
+dir.create(file.path("data/raw/Direct_Replications/RRR_05"))
+dir.create(file.path("data/processed/Direct_Replications/RRR_05"))
+
+
+# download data 
+RRR_05_download <- osfr::osf_retrieve_file("dvaz7") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/Direct_Replications/RRR_05"), 
+                     conflicts = "overwrite")
+
+# unzip data 
+utils::unzip(zipfile = RRR_05_download$local_path, 
+             exdir = file.path("data/raw/Direct_Replications/RRR_05"))
+
+
+# identify the paths to the replication data files
+paths <- list.files(file.path("data/raw/Direct_Replications/RRR_05/Data/"), 
+                    pattern = "*.csv$", 
+                    full.names = TRUE)
+
+# import data: RRR_05
+RRR_05_data <- lapply(paths, readr::read_csv)
+# rename list objects (setting replication names)
+names(RRR_05_data) <- stringr::str_extract(paths, pattern = "//(\\w+)_", group = 1)
+
+
+# delete first row (holds column info)
+RRR_05_data <- lapply(names(RRR_05_data), function(name){RRR_05_data[[name]] <- RRR_05_data[[name]][-1,]})
+
+# rename list objects (setting replication names)
+names(RRR_05_data) <- stringr::str_extract(paths, pattern = "//(\\w+)_", group = 1)
+
+# keep the global environment tidy 
+rm(RRR_05_download, paths)
+
+```
+
+##### process raw data
+
+```{r processing RRR_05}
+
+###
+## MASC: Finkel1 
+
+# create directories for Finkel1 
+dir.create(file.path("data/processed/Direct_Replications/RRR_05/Finkel1"))
+
+# source processing script / function 
+source(file.path("code/processing/RRR_05/RRR_05__Finkel1.R"))
+
+# create item & ipd level data
+convert_raw_data_Finkel1_fun(data = RRR_05_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/RRR_05/Finkel1"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/RRR_05/Finkel1/RRR_05__Finkel1__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/RRR_05/Finkel1/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Finkel2
+
+# create directories for Finkel2
+dir.create(file.path("data/processed/Direct_Replications/RRR_05/Finkel2"))
+
+# source processing script / function 
+source(file.path("code/processing/RRR_05/RRR_05__Finkel2.R"))
+
+# create item & ipd level data
+convert_raw_data_Finkel2_fun(data = RRR_05_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/RRR_05/Finkel2"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/RRR_05/Finkel2/RRR_05__Finkel2__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/RRR_05/Finkel2/"), 
+  suppress_list_output = TRUE)
+
+###
+# keep the global environment tidy 
+rm(RRR_05_data)
+# delete functions 
+rm(convert_raw_data_Finkel1_fun, 
+   convert_raw_data_Finkel2_fun)
+
+```
+
+#### RRR_06
+
+Main Publication:
+<https://journals.sagepub.com/doi/full/10.1177/1745691616674458>
+
+Repository: <https://osf.io/pkd65/>
+
+##### download raw data
+
+```{r prepare RRR_06 (1/2)}
+
+# create directories for RRR_06
+dir.create(file.path("data/raw/Direct_Replications/RRR_06"))
+dir.create(file.path("data/processed/Direct_Replications/RRR_06"))
+
+
+# download data 
+RRR_06_download <- osfr::osf_retrieve_file("9j72u") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/Direct_Replications/RRR_06"), 
+                     conflicts = "overwrite")
+
+# unzip data 
+# the unzip function does not work for me here (Error: Illegal byte sequence) 
+# I unzip manually  
+utils::unzip(zipfile = RRR_06_download$local_path,
+             exdir = file.path("data/raw/Direct_Replications/RRR_06"))
+
+```
+
+##### ATTENTION: In case of an error, the unzip function might not have worked (for me it actually unzips it, but still produces an error). If the next (!) chunk fails, go to the folder "data/raw/Direct_Replications/RRR_06" and manually unzip "Data_FINAL.zip".
+
+##### preprocess raw data
+
+```{r prepare RRR_06 (2/2)}
+
+# identify the paths to the replication data files
+paths <- list.files(file.path("data/raw/Direct_Replications/RRR_06/Data/")
+                    , pattern = "*.csv$"
+                    , full.names = TRUE
+                    )
+
+# import data: RRR_06
+RRR_06_data <- lapply(paths, readr::read_csv)
+# rename list objects (setting replication names)
+names(RRR_06_data) <- stringr::str_remove(
+  stringr::str_extract(paths, 
+                       pattern = "//(\\w+)", 
+                       group = 1), 
+  "_Data")
+
+
+# rename columns
+# and delete first row (holds column info)
+RRR_06_data <- lapply(names(RRR_06_data), 
+       function(name){
+  names(RRR_06_data[[name]]) <- c("subjectNo", "participantID", "condition", "performedCorrectlyCartoon1",
+                         "performedCorrectlyCartoon2", "performedCorrectlyCartoon3",
+                         "performedCorrectlyCartoon4", "performedCorrectlyTotal",
+                         "ratingTask1", "ratingTask2", "ratingCartoon1",
+                         "ratingCartoon2", "ratingCartoon3", "ratingCartoon4",
+                         "selfReportedPerformance", "comprehensionCartoons",
+                         "awareOfGoal", "participantsGuessedGoal", "age", "gender",
+                         "student", "occupationFieldOfStudy")
+  
+  return(RRR_06_data[[name]][-1,])
+})
+
+# rename list objects (setting replication names)
+names(RRR_06_data) <- stringr::str_remove(
+  stringr::str_extract(paths, 
+                       pattern = "//(\\w+)", 
+                       group = 1), 
+  "_Data")
+
+
+# keep the global environment tidy 
+rm(RRR_06_download, paths)
+
+```
+
+##### process raw data
+
+```{r processing RRR_06}
+
+###
+## MASC: Strack 
+
+# create directories for Strack 
+dir.create(file.path("data/processed/Direct_Replications/RRR_06/Strack"))
+
+# source processing script / function 
+source(file.path("code/processing/RRR_06/RRR_06__Strack.R"))
+
+# create item & ipd level data
+convert_raw_data_Strack_fun(data = RRR_06_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/RRR_06/Strack"))
+
+# create replication level data 
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/RRR_06/Strack/RRR_06__Strack__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/RRR_06/Strack/"), 
+  suppress_list_output = TRUE)
+
+###
+# keep the global environment tidy 
+rm(RRR_06_data)
+# delete functions 
+rm(convert_raw_data_Strack_fun)
+
+```
+
+#### RRR_07
+
+Main Publication:
+<https://journals.sagepub.com/doi/10.1177/1745691617693624>
+
+Repository: <https://osf.io/scu2f/>
+
+##### download raw data
+
+```{r prepare RRR_07}
+
+# create directories for RRR_07
+dir.create(file.path("data/raw/Direct_Replications/RRR_07"))
+dir.create(file.path("data/processed/Direct_Replications/RRR_07"))
+
+# download data 
+RRR_07_download <- osfr::osf_retrieve_file("6wvxa") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/Direct_Replications/RRR_07"), 
+                     conflicts = "overwrite")
+
+# unzip data 
+utils::unzip(zipfile = RRR_07_download$local_path,
+             exdir = file.path("data/raw/Direct_Replications/RRR_07"))
+
+# identify the paths to the replication data files
+paths <- list.files(file.path("data/raw/Direct_Replications/RRR_07/Data/"), 
+                    pattern = "*.csv$", 
+                    full.names = TRUE)
+
+# import data: RRR_07
+RRR_07_data <- lapply(paths, readr::read_csv)
+# rename list objects (setting replication names)
+names(RRR_07_data) <- stringr::str_remove(
+  stringr::str_extract(paths, 
+                       pattern = "//(\\w+)", 
+                       group = 1), 
+  "_Data")
+
+# keep the global environment tidy 
+rm(RRR_07_download, paths)
+
+```
+
+##### process raw data
+
+```{r processing RRR_07}
+
+###
+## MASC: Rand 
+
+# create directories for Rand 
+dir.create(file.path("data/processed/Direct_Replications/RRR_07/Rand"))
+
+# source processing script / function 
+source(file.path("code/processing/RRR_07/RRR_07__Rand.R"))
+
+# create item & ipd level data
+convert_raw_data_Rand_fun(data = RRR_07_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/RRR_07/Rand"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/RRR_07/Rand/RRR_07__Rand__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/RRR_07/Rand/"), 
+  suppress_list_output = TRUE)
+
+###
+# keep the global environment tidy 
+rm(RRR_07_data)
+# delete functions 
+rm(convert_raw_data_Rand_fun)
+
+```
+
+#### RRR_08
+
+Main Publication:
+<https://journals.sagepub.com/doi/10.1177/1745691618755704>
+
+Repository: <https://osf.io/k27hm/>
+
+##### download raw data
+
+```{r prepare RRR_08}
+
+# create directories for RRR_08
+dir.create(file.path("data/raw/Direct_Replications/RRR_08"))
+dir.create(file.path("data/processed/Direct_Replications/RRR_08"))
+
+# download data 
+RRR_08_download <- osfr::osf_retrieve_file("p2myk") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/Direct_Replications/RRR_08"), 
+                     conflicts = "overwrite")
+
+# unzip data 
+utils::unzip(zipfile = RRR_08_download$local_path,
+             exdir = file.path("data/raw/Direct_Replications/RRR_08"))
+
+# identify the paths to the replication data files
+paths <- list.files(file.path("data/raw/Direct_Replications/RRR_08/Meta-analysis/"), 
+                    pattern = "*data_complete.csv$", 
+                    full.names = TRUE, 
+                    recursive = TRUE)
+
+# import data: RRR_08
+RRR_08_data <- lapply(paths, readr::read_csv)
+# rename list objects (setting replication names)
+names(RRR_08_data) <- stringr::str_remove(
+  stringr::str_extract(paths, "(?<=//)[^/]+"), 
+  "_data")
+
+# keep the global environment tidy 
+rm(RRR_08_download, paths)
+
+```
+
+##### process raw data
+
+```{r processing RRR_08}
+
+###
+## MASC: Dijksterhuis 
+
+# create directories for Dijksterhuis 
+dir.create(file.path("data/processed/Direct_Replications/RRR_08/Dijksterhuis"))
+
+# source processing script / function 
+source(file.path("code/processing/RRR_08/RRR_08__Dijksterhuis.R"))
+
+# create item & ipd level data
+convert_raw_data_Dijksterhuis_fun(data = RRR_08_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/RRR_08/Dijksterhuis"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/RRR_08/Dijksterhuis/RRR_08__Dijksterhuis__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/RRR_08/Dijksterhuis/"), 
+  suppress_list_output = TRUE)
+
+###
+# keep the global environment tidy 
+rm(RRR_08_data)
+# delete functions 
+rm(convert_raw_data_Dijksterhuis_fun)
+
+```
+
+#### RRR_09
+
+Main Publication:
+<https://journals.sagepub.com/doi/10.1177/2515245918777487>
+
+Repository: <https://osf.io/mcvt7/>
+
+##### download raw data
+
+##### preprocess raw data
+
+```{r prepare RRR_09}
+
+# create directories for RRR_09
+dir.create(file.path("data/raw/Direct_Replications/RRR_09"))
+dir.create(file.path("data/processed/Direct_Replications/RRR_09"))
+
+# download data 
+RRR_09_download <- osfr::osf_retrieve_file("qegfd") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/Direct_Replications/RRR_09"), 
+                     conflicts = "overwrite")
+
+# unzip data 
+utils::unzip(zipfile = RRR_09_download$local_path,
+             exdir = file.path("data/raw/Direct_Replications/RRR_09"))
+
+# identify the paths to the replication data files
+paths <- list.files(file.path("data/raw/Direct_Replications/RRR_09/SW_Script_and_Data/"), 
+                    pattern = "*.csv$", 
+                    full.names = TRUE)
+
+# import function 
+RRR_09_data <- paths %>% 
+  purrr::map_df(~readr::read_csv(., 
+                                 col_types = readr::cols(.default = "c"), 
+                                 locale = readr::locale(encoding = "Latin1"))) %>%
+  dplyr::mutate_at(dplyr::vars(dplyr::starts_with("ron")), dplyr::funs(as.numeric)) %>%
+  dplyr::mutate_at(dplyr::vars(dplyr::starts_with("behavior")), dplyr::funs(as.numeric)) %>%
+  filter(!is.na(id)) # drops the empty rows from the datasets
+
+# keep the global environment tidy 
+rm(RRR_09_download, paths)
+
+```
+
+##### process raw data
+
+```{r processing RRR_09}
+
+###
+## MASC: Srull1 
+
+# create directories for Srull1 
+dir.create(file.path("data/processed/Direct_Replications/RRR_09/Srull1"))
+
+# source processing script / function 
+source(file.path("code/processing/RRR_09/RRR_09__Srull1.R"))
+
+# create item & ipd level data
+convert_raw_data_Srull1_fun(data = RRR_09_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/RRR_09/Srull1"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/RRR_09/Srull1/RRR_09__Srull1__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/RRR_09/Srull1/"), 
+  suppress_list_output = TRUE)
+
+###
+## MASC: Srull2
+
+# create directories for Srull2
+dir.create(file.path("data/processed/Direct_Replications/RRR_09/Srull2"))
+
+# source processing script / function 
+source(file.path("code/processing/RRR_09/RRR_09__Srull2.R"))
+
+# create item & ipd level data
+convert_raw_data_Srull2_fun(data = RRR_09_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/RRR_09/Srull2"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/RRR_09/Srull2/RRR_09__Srull2__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/RRR_09/Srull2/"), 
+  suppress_list_output = TRUE)
+
+###
+# keep the global environment tidy 
+rm(RRR_09_data)
+# delete functions 
+rm(convert_raw_data_Srull1_fun, 
+   convert_raw_data_Srull2_fun)
+
+```
+
+#### RRR_10
+
+Main Publication:
+<https://journals.sagepub.com/doi/10.1177/2515245918781032>
+
+Repository: <https://osf.io/mcvt7/>
+
+##### download raw data
+
+##### preprocess raw data
+
+```{r prepare RRR_10}
+
+# create directories for RRR_10
+dir.create(file.path("data/raw/Direct_Replications/RRR_10"))
+dir.create(file.path("data/processed/Direct_Replications/RRR_10"))
+
+# download data 
+RRR_10_download <- osfr::osf_retrieve_file("fwnc2") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/Direct_Replications/RRR_10"), 
+                     conflicts = "overwrite")
+
+# unzip data 
+utils::unzip(zipfile = RRR_10_download$local_path,
+             exdir = file.path("data/raw/Direct_Replications/RRR_10"))
+
+# identify the paths to the replication data files
+paths <- list.files(file.path("data/raw/Direct_Replications/RRR_10/Meta-Analysis/Data/"), 
+                    pattern = "*_Final.xlsx$", 
+                    full.names = TRUE)
+
+# import data 
+# this code was adopted from "mazar_srull_meta_analysis.R" in https://osf.io/fwnc2 
+library(dplyr)
+library(purrr)
+library(stringr)
+library(readxl)
+RRR_10_data <- paths %>%
+  purrr::map(read_excel, sheet='data', col_types='text') %>%
+  purrr::map_df(bind_rows) %>%
+  mutate_at(.vars=vars(starts_with('ron'), starts_with('hex'), starts_with('religious'),
+                      starts_with('fatigue'), starts_with('behavior'), starts_with('raven'),
+                      contains('num'), contains('hours'), contains('minutes'), contains('seconds'),
+                      contains('paperclip'), id, age),
+           .funs=funs(as.numeric)) %>%
+  mutate_if(is.character, funs(ifelse(!is.na(.), str_replace_all(., '\n?\r?', ''), .))) %>%
+  rename_all(str_replace, pattern='raven', replacement='matrix') %>%
+  mutate_at(.vars=vars(starts_with('matrix')), .funs=funs(ifelse(. < 1 | . > 8, NA, .))) %>%
+  mutate_at(.vars=vars(religious1:religious3, fatigue1:fatigue6, hex1:hex60),
+            .funs=funs(ifelse(. < 1 | . > 5, NA, .))) %>%
+  mutate_at(.vars=vars(ron.hostile:ron.interesting, behavior1:behavior6, judgedcreativity.paperclips),
+            .funs=funs(ifelse(. < 0 | . > 10, NA, .))) %>%
+  mutate(num.boxes=ifelse(round(num.boxes) != num.boxes, NA, num.boxes)) %>%
+  mutate(date.tested = ifelse(!is.na(as.Date(as.numeric(date.tested), origin = "1899-12-30")),
+                as.character(as.Date(as.numeric(date.tested), origin = "1899-12-30")),
+                date.tested),
+         language=str_to_title(language),
+         compensation=ifelse(str_detect(str_to_lower(compensation), 'course|class|credit'),
+                             'course credit', compensation),
+         kept.sheet=str_to_upper(kept.sheet),
+         inclusion = ifelse(is.na(maz.prime.cond) | is.na(maz.cheat.cond) | is.na(num.boxes),
+                            'exclusion', inclusion),
+         lab.name = case_when(
+           lab.name == 'Blatz_Crusius' ~ 'Blatz',
+           lab.name == 'LoschelderMechtel' ~ 'Loschelder',
+           lab.name == 'McCarthy' ~ 'McCarthy',
+           lab.name == 'Voracek' ~ 'Tran',
+           lab.name == 'Nahari' | lab.name == 'klein Selle' ~ 'klein Selle & Rozmann',
+           TRUE ~ str_to_title(lab.name))) %>%
+  filter(!(lab.name %in% c('Huntjens', 'Sumapouw', 'Willis')) & !(is.na(lab.name))) %>%
+  select(1:144)
+
+# keep the global environment tidy 
+rm(RRR_10_download, paths)
+
+```
+
+##### process raw data
+
+```{r processing RRR_10}
+
+###
+## MASC: Mazar 
+
+# create directories for Mazar 
+dir.create(file.path("data/processed/Direct_Replications/RRR_10/Mazar"))
+
+# source processing script / function 
+source(file.path("code/processing/RRR_10/RRR_10__Mazar.R"))
+
+# create item & ipd level data
+convert_raw_data_Mazar_fun(data = RRR_10_data, 
+                            output_folder = file.path("data/processed/Direct_Replications/RRR_10/Mazar"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/Direct_Replications/RRR_10/Mazar/RRR_10__Mazar__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/Direct_Replications/RRR_10/Mazar/"), 
+  suppress_list_output = TRUE)
+
+###
+# keep the global environment tidy 
+rm(RRR_10_data)
+# delete functions 
+rm(convert_raw_data_Mazar_fun)
+```
+
+## 2.2 Psychological Science Accelerator
+
+```{r create folder}
+
+# create directories for Psychological Science Accelerator 
+dir.create(file.path("data/raw/PSA/"))
+dir.create(file.path("data/processed/PSA/"))
+
+```
+
+#### PSA_006
+
+Main Publication: <https://www.nature.com/articles/s41562-022-01319-5>
+
+Repository:
+<https://github.com/marton-balazs-kovacs/trolleyMultilabReplication>
+
+##### download raw data
+
+##### preprocess raw data
+
+```{r prepare PSA_006}
+
+# create directories for PSA_006
+dir.create(file.path("data/raw/PSA/PSA_006"))
+dir.create(file.path("data/processed/PSA/PSA_006"))
+
+# download data from github 
+# Trolley_raw.csv
+# create helper object with the URL 
+url_helper1 <- "https://raw.githubusercontent.com/marton-balazs-kovacs/trolleyMultilabReplication/master/inst/extdata/trolley_raw.csv"
+utils::download.file(url = url_helper1,
+                     destfile = paste("data/raw/PSA/PSA_006", basename(url_helper1), sep = "/"))
+# sysdata.rda
+# create helper object with the URL 
+url_helper2 <- "https://raw.githubusercontent.com/marton-balazs-kovacs/trolleyMultilabReplication/master/R/sysdata.rda"
+utils::download.file(url = url_helper2,
+                     destfile = paste("data/raw/PSA/PSA_006", basename(url_helper2), sep = "/"))
+
+# import data: PSA_006
+# Trolley_raw.csv
+PSA_006_study1a_data_raw <- readr::read_csv(paste("data/raw/PSA/PSA_006", basename(url_helper1), sep = "/"))
+# sysdata.rda
+load(paste("data/raw/PSA/PSA_006", basename(url_helper2), sep = "/"))
+
+## the following chunks of code are mostly copied from the PSA code to apply the according preprocessing (https://github.com/marton-balazs-kovacs/trolleyMultilabReplication/blob/master/data-raw/PSA/trolley_preprocessed.R )
+
+# Remove all trial runs and incomplete surveys and remove unnecessary variables
+Trolley_preprocessed <-
+  PSA_006_study1a_data_raw %>%
+  # Remove those who didn't finish the questionnaire
+  dplyr::filter(Progress >= 98) %>%
+  # Remove all practice runs
+  dplyr::filter(stringr::str_detect(stringr::str_to_lower(practice), "false")) %>%
+  # Remove the answers for a particular lab that has unflagged practice data
+  dplyr::filter(!(lab == "TUR_021" & StartDate < lubridate::date("2020-04-22")),
+                !(lab == "AUT_003" & StartDate < lubridate::date("2020-06-18")),
+                !(lab == "USA_095")) %>%
+  # Remove all variables that are not needed
+  dplyr::select(
+    -c(Status:RecordedDate,
+       RecipientLastName:IND_006,
+       second:LS,
+       JPN_003_debrief,
+       image1:image6,
+       PHL_004_consent:PHL_003_consent,
+       confirmCode,
+       Q_URL,
+       imgset,
+       practice))
+
+## the following chunks of code are mostly copied from the PSA code to apply the according preprocessing (https://github.com/marton-balazs-kovacs/trolleyMultilabReplication/blob/master/data-raw/PSA/trolley.R )
+
+# Some country codes are not in standard iso3 format, we need those for recoding
+custom_countries <-
+  c("LEB" = "LBN",
+    "BUL" = "BGR",
+    "SPA" = "ESP",
+    "SWT" = "CHE")
+
+# Flag participants for inclusion based on the preregistration
+PSA_006_study1a_data <-
+  Trolley_preprocessed %>%
+  # Aggregate randomization variables
+  mutate(scenario1 = case_when(FL_24_DO_Footbridgepole == 1 ~ "Pole",
+                               FL_24_DO_Footbridgeswitch == 1 ~ "Switch",
+                               TRUE ~ NA_character_),
+         scenario2 = case_when(FL_22_DO_Standardswitch == 1 ~ "Standardswitch",
+                               FL_22_DO_Standardfootbridge == 1 ~ "Standardfootbridge",
+                               FL_22_DO_Loop == 1 ~ "Loop",
+                               FL_22_DO_Obstaclecollide == 1 ~ "Obstaclecollide",
+                               TRUE ~ NA_character_),
+         # Flag careless respondents
+         include_nocareless = careless_1 != 1 & careless_2 != 1 & careless_3 != 2,
+         # Flag confused participants
+         include_noconfusion = confusion != 3,
+         # Flag those with familiarity of the topic
+         include_nofamiliarity = familiarity <= 3,
+         # Flag those with technical problems
+         include_notechproblem = technical_problems != 2,
+         # Flag those who did not fill the questionnaire on their native language
+         include_nonativelang = native_language != 2,
+         # Flag those who pass all exclusion criterion
+         include_noproblem =  include_nofamiliarity &
+           include_nocareless &
+           include_noconfusion &
+           include_notechproblem &
+           include_nonativelang,
+         # Flag those who pass all exclusion criterion but familiarity does not matter
+         include_withoutfamiliarity = include_nocareless &
+           include_noconfusion &
+           include_notechproblem &
+           include_nonativelang,
+         # Flag those who pass all exclusion criterion but they are familiar with the tasks
+         include_familiar = !include_nofamiliarity &
+           include_nocareless &
+           include_noconfusion &
+           include_notechproblem &
+           include_nonativelang) %>%
+  # Flag those that are eligible to analysis in each study
+  left_join(select(correct_answers, -scenario2) %>% drop_na(scenario1),
+            by = c("scenario1")) %>%
+  # Flag responses where respondents pass the attention check but none of the other criteria are applied
+  mutate(include_study1a_attention = trolley_attention == trolley_answer,
+         include_study1b_attention = speedboat_attention == speedboat_answer,
+         # Flag responses where respondents pass all of the checks
+         include_study1a = include_study1a_attention & include_noproblem,
+         include_study1b = include_study1b_attention & include_noproblem,
+         # Flag responses where participants pass all the checks but both familiar and not familiar respondents are included
+         # (i.e., familiarity does not matter)
+         include_study1a_withoutfamiliarity = include_study1a_attention & include_withoutfamiliarity,
+         include_study1b_withoutfamiliarity = include_study1b_attention & include_withoutfamiliarity,
+         # Flag responses where participants pass all the checks but only familiar respondents are included
+         include_study1a_familiar = include_study1a_attention & include_familiar,
+         include_study1b_familiar = include_study1b_attention & include_familiar) %>%
+  select(-trolley_answer, -speedboat_answer) %>%
+  left_join(select(correct_answers, -scenario1) %>% drop_na(scenario2),
+            by = c("scenario2")) %>%
+  # Flag responses where respondents pass the attention check but none of the other criteria are applied
+  mutate(include_study2a_attention = trolley_attention == trolley_answer,
+         include_study2b_attention = speedboat_attention == speedboat_answer,
+         # Flag responses where respondents pass all of the checks
+         include_study2a = include_study2a_attention & include_noproblem,
+         include_study2b = include_study2b_attention & include_noproblem,
+         # Flag responses where participants pass all the checks but both familiar and not familiar respondents are included
+         # (i.e., familiarity does not matter)
+         include_study2a_withoutfamiliarity = include_study2a_attention & include_withoutfamiliarity,
+         include_study2b_withoutfamiliarity = include_study2b_attention & include_withoutfamiliarity,
+         # Flag responses where participants pass all the checks but only familiar respondents are included
+         include_study2a_familiar = include_study2a_attention & include_familiar,
+         include_study2b_familiar = include_study2b_attention & include_familiar) %>%
+  select(-trolley_answer, -speedboat_answer) %>%
+  # Add processed variables
+  mutate(country3 = str_extract(lab, "[A-Z]+") %>%
+           # Some country codes are not standard iso3 codes; replace
+           recode(., !!!custom_countries),
+         # Some labs collected data in other countries; correct
+         country3 = case_when(lab == "GBR_001" ~ "PAK",
+                              lab == "GBR_031" ~ "BRA",
+                              lab == "GBR_060" ~ "DNK",
+                              TRUE ~ country3),
+         # Add region, based on the survey name
+         Region = str_remove(survey_name, "PSA006_"),
+         # Age is a multiple choice question that starts(1) at 18
+         Age = age_1 + 17,
+         # The sex variable was renamed as Gender during the original analysis but this is erroneous
+         # Since the original question asked about sex
+         # Thus we comment this line out
+         # Gender = sex,
+         # select those that have a higher education
+         edu_high = education_leve > 2,
+         # Higher education is recorded differently in Germany and Austria
+         edu_high_ger = education_level_germ > 4,
+         `Higher education` = case_when(country3 %in% c("AUT", "DEU") ~ edu_high_ger,
+                                        TRUE ~ edu_high)) %>%
+  select(-edu_high, -edu_high_ger)
+
+# keep the global environment tidy 
+rm(correct_answers, 
+   qualtrics_surveys,
+   PSA_006_study1a_data_raw, 
+   Trolley_preprocessed, 
+   custom_countries, 
+   url_helper1, 
+   url_helper2
+   )
+
+```
+
+##### process raw data
+
+```{r processing PSA_006}
+
+###
+## MASC: Trolley_Problem
+
+# create directories for Trolley_Problem 
+dir.create(file.path("data/processed/PSA/PSA_006/Trolley_Problem"))
+
+# source processing script / function 
+source(file.path("code/processing/PSA_006/PSA_006__Trolley_Problem.R"))
+
+# create item & ipd level data
+convert_raw_data_Trolley_Problem_fun(data = PSA_006_study1a_data, 
+                             output_folder = file.path("data/processed/PSA/PSA_006/Trolley_Problem"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/PSA/PSA_006/Trolley_Problem/PSA_006__Trolley_Problem__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/PSA/PSA_006/Trolley_Problem/"), 
+  suppress_list_output = TRUE)
+
+###
+# keep the global environment tidy
+rm(PSA_006_study1a_data,
+   convert_raw_data_Trolley_Problem_fun)
+
+```
+
+#### PSACR_001
+
+Main Publication:
+<https://link.springer.com/article/10.1007/s42761-022-00128-3>
+
+Repository: <https://osf.io/m6q8f/>
+
+##### download raw data
+
+##### preprocess raw data
+
+```{r prepare PSACR_001}
+
+# create directories for PSACR_001
+dir.create(file.path("data/raw/PSA/PSACR_001"))
+dir.create(file.path("data/processed/PSA/PSACR_001"))
+
+# download data 
+# study1_data.csv
+PSACR_001_study1_data_download <- osfr::osf_retrieve_file("r3dfw") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/PSA/PSACR_001"), 
+                     conflicts = "overwrite")
+# study1_country.csv
+PSACR_001_study1_country_download <- osfr::osf_retrieve_file("g5hwc") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/PSA/PSACR_001"), 
+                     conflicts = "overwrite")
+# general_data.csv 
+PSACR_001_general_data_download <- osfr::osf_retrieve_file("ghxey") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/PSA/PSACR_001"), 
+                     conflicts = "overwrite")
+
+# import data: PSACR_001
+# study1_data.csv
+PSACR_001_study1_data <- readr::read_csv(PSACR_001_study1_data_download$local_path) 
+# study1_country.csv
+PSACR_001_study1_country <- utils::read.csv(
+  file = PSACR_001_study1_country_download$local_path) %>% 
+  dplyr::select(unique_id, Final.Answer) %>% 
+  dplyr::rename(country = Final.Answer) %>% 
+  dplyr::filter(country != "") %>% 
+  dplyr::mutate(country = factor(country))
+PSACR_001_study1_country <- PSACR_001_study1_country %>%
+  dplyr::mutate(country = substr(x = country,
+                                 start = nchar(as.character(country)) - 3,
+                                 stop = nchar(as.character(country))))
+# general_data.csv 
+PSACR_001_general_data <- readr::read_csv(PSACR_001_general_data_download$local_path) 
+
+# create list with all data components 
+PSACR_001_data <- list(PSACR_001_study1_data, 
+   PSACR_001_study1_country, 
+   PSACR_001_general_data)
+names(PSACR_001_data) <- c("PSACR_001_study1_data", 
+                           "PSACR_001_study1_country", 
+                           "PSACR_001_general_data")
+
+# keep the global environment tidy 
+rm(PSACR_001_study1_data_download, 
+   PSACR_001_study1_country_download, 
+   PSACR_001_general_data_download,
+   PSACR_001_study1_data, 
+   PSACR_001_study1_country, 
+   PSACR_001_general_data)
+
+```
+
+##### process raw data
+
+```{r processing PSACR_001}
+
+###
+## MASC: Loss_Gain
+
+# create directories for Loss_Gain 
+dir.create(file.path("data/processed/PSA/PSACR_001/Loss_Gain"))
+
+# source processing script / function 
+source(file.path("code/processing/PSACR_001/PSACR_001__Loss_Gain.R"))
+
+# create item & ipd level data
+convert_raw_data_Loss_Gain_fun(data = PSACR_001_data, 
+                            output_folder = file.path("data/processed/PSA/PSACR_001/Loss_Gain"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/PSA/PSACR_001/Loss_Gain/PSACR_001__Loss_Gain__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/PSA/PSACR_001/Loss_Gain/"), 
+  suppress_list_output = TRUE)
+
+###
+# keep the global environment tidy
+rm(PSACR_001_data,
+   convert_raw_data_Loss_Gain_fun)
+
+```
+
+#### PSACR_002
+
+Main Publication: <https://www.nature.com/articles/s41562-021-01173-x>
+
+Repository: <https://osf.io/jeu73/>
+
+##### download raw data
+
+##### preprocess raw data
+
+```{r prepare PSACR_002}
+
+### packages in here (apart from dplyr)
+## car
+## tidyr
+## psych
+
+#### The PSACR002 project indicates that the data on its main repository are outdated: https://osf.io/jeu73/wiki/home/
+#### This code attempts to run the data processing to include the "up-to-date" data-set. 
+#### The OSF link for the updated data-set itself is: "study2_data" https://osf.io/bec2f
+
+#### It seems that the updated data-set is equivalent to the data-set DF_trial in "data pre-processing.Rmd" (https://osf.io/nyvbh)
+#### Though it is a single csv, while the code in "data pre-processing.Rmd" combines monthly information. 
+#### We believe that the updated data-set ("study2_data") is in a state that's comparable to running the following chunks from "data pre-processing.Rmd" on the original data
+
+# May1<-read.csv("unprocessed_data/05.May/study2_data.csv")
+# June1<-read.csv("unprocessed_data/06.June/study2_data.csv")
+# July1<-read.csv("unprocessed_data/07.July/study2_data.csv")
+# August_a1<-read.csv("unprocessed_data/08.August/study2_data.csv")
+# August_b1<-read.csv("unprocessed_data/08.August2/study2_data.csv")
+# September1<-read.csv("unprocessed_data/09.September/study2_data.csv")
+# October1<-read.csv("unprocessed_data/10.October/study2_data.csv")
+# 
+# DF_trial<-rbind(May1, June1, July1, August_a1, August_b1, September1, October1)
+# rm(May1, June1, July1, August_a1, August_b1, September1, October1)
+# 
+# DF_trial <- DF_trial %>% 
+#   filter( is.na(unique_id)== FALSE & is.na(answer)== FALSE & answer!="")
+# 
+# DF_trial <- DF_trial %>% 
+#   select(
+#     item_name, answer, unique_id, seen_item
+#   )
+
+#### We download the remaining data to create DF_demo and DF_general_long from: https://osf.io/jeu73/
+#### We begin by importing DF_trial, then DF_demo and then DF_general_long
+#### Afterwards we continue data-processing according to "data pre-processing.Rmd" (fully copying their code and only making adaptions where necessary for execution)
+
+## import updated data for DF_trial ("study2_data") from OSF
+
+# create directories for PSACR_002  
+dir.create(file.path("data/raw/PSA/PSACR_002"))
+
+dir.create(file.path("data/raw/PSA/PSACR_002/DF_trial"))
+
+# download data for DF_trial
+OSF_download <- osfr::osf_retrieve_file("bec2f") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/PSA/PSACR_002/DF_trial/"), 
+                     conflicts = "overwrite")
+
+# import data: DF_trial
+DF_trial <- readr::read_csv(OSF_download$local_path) 
+rm(OSF_download)
+
+## This seems to be the link from which I can access the data referenced in the script: https://osf.io/jeu73/
+
+### individual OSF links: for DF_demo (.csv files)
+## May: https://osf.io/x3w7k
+## June: https://osf.io/mjsqb
+## July: https://osf.io/5npha
+## August_1: https://osf.io/nza7d
+## August_2: https://osf.io/df9js
+## September: https://osf.io/x3fnh
+## October: https://osf.io/awrty
+
+### individual OSF links: for DF_general_long (.csv files)
+## May: https://osf.io/t5k6a
+## June: https://osf.io/7csep
+## July: https://osf.io/adcz9
+## August_1: https://osf.io/rvfqu
+## August_2: https://osf.io/2a3t9
+## September: https://osf.io/e7vqp
+## October: https://osf.io/grxtb
+
+# create directories for DF_demo & DF_general_long
+dir.create(file.path("data/raw/PSA/PSACR_002/DF_demo"))
+dir.create(file.path("data/raw/PSA/PSACR_002/DF_demo/May"))
+dir.create(file.path("data/raw/PSA/PSACR_002/DF_demo/June"))
+dir.create(file.path("data/raw/PSA/PSACR_002/DF_demo/July"))
+dir.create(file.path("data/raw/PSA/PSACR_002/DF_demo/August1"))
+dir.create(file.path("data/raw/PSA/PSACR_002/DF_demo/August2"))
+dir.create(file.path("data/raw/PSA/PSACR_002/DF_demo/September"))
+dir.create(file.path("data/raw/PSA/PSACR_002/DF_demo/October"))
+
+dir.create(file.path("data/raw/PSA/PSACR_002/DF_general_long"))
+dir.create(file.path("data/raw/PSA/PSACR_002/DF_general_long/May"))
+dir.create(file.path("data/raw/PSA/PSACR_002/DF_general_long/June"))
+dir.create(file.path("data/raw/PSA/PSACR_002/DF_general_long/July"))
+dir.create(file.path("data/raw/PSA/PSACR_002/DF_general_long/August1"))
+dir.create(file.path("data/raw/PSA/PSACR_002/DF_general_long/August2"))
+dir.create(file.path("data/raw/PSA/PSACR_002/DF_general_long/September"))
+dir.create(file.path("data/raw/PSA/PSACR_002/DF_general_long/October"))
+
+## create output folder 
+dir.create(file.path("data/processed/PSA/PSACR_002"))
+
+## import DF_demo files 
+
+# download data for May
+OSF_download <- osfr::osf_retrieve_file("x3w7k") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/PSA/PSACR_002/DF_demo/May"), 
+                     conflicts = "overwrite")
+
+# import data: May
+May2 <- readr::read_csv(OSF_download$local_path) 
+rm(OSF_download)
+
+# download data for June
+OSF_download <- osfr::osf_retrieve_file("mjsqb") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/PSA/PSACR_002/DF_demo/June"), 
+                     conflicts = "overwrite")
+
+# import data: June
+June2 <- readr::read_csv(OSF_download$local_path) 
+rm(OSF_download)
+
+# download data for July
+OSF_download <- osfr::osf_retrieve_file("5npha") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/PSA/PSACR_002/DF_demo/July"), 
+                     conflicts = "overwrite")
+
+# import data: July
+July2 <- readr::read_csv(OSF_download$local_path) 
+rm(OSF_download)
+
+# download data for August1
+OSF_download <- osfr::osf_retrieve_file("nza7d") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/PSA/PSACR_002/DF_demo/August1"), 
+                     conflicts = "overwrite")
+
+# import data: August1
+August_a2 <- readr::read_csv(OSF_download$local_path) 
+rm(OSF_download)
+
+# download data for August2
+OSF_download <- osfr::osf_retrieve_file("df9js") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/PSA/PSACR_002/DF_demo/August2"), 
+                     conflicts = "overwrite")
+
+# import data: August2
+August_b2 <- readr::read_csv(OSF_download$local_path) 
+rm(OSF_download)
+
+# download data for September
+OSF_download <- osfr::osf_retrieve_file("x3fnh") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/PSA/PSACR_002/DF_demo/September"), 
+                     conflicts = "overwrite")
+
+# import data: September
+September2 <- readr::read_csv(OSF_download$local_path) 
+rm(OSF_download)
+
+# download data for October
+OSF_download <- osfr::osf_retrieve_file("awrty") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/PSA/PSACR_002/DF_demo/October"), 
+                     conflicts = "overwrite")
+
+# import data: October
+October2 <- readr::read_csv(OSF_download$local_path) 
+rm(OSF_download)
+
+## import DF_general_long files 
+
+# download data for May
+OSF_download <- osfr::osf_retrieve_file("t5k6a") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/PSA/PSACR_002/DF_demo/May"), 
+                     conflicts = "overwrite")
+
+# import data: May
+May_general <- readr::read_csv(OSF_download$local_path) 
+rm(OSF_download)
+
+# download data for June
+OSF_download <- osfr::osf_retrieve_file("7csep") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/PSA/PSACR_002/DF_demo/June"), 
+                     conflicts = "overwrite")
+
+# import data: June
+June_general <- readr::read_csv(OSF_download$local_path) 
+rm(OSF_download)
+
+# download data for July
+OSF_download <- osfr::osf_retrieve_file("adcz9") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/PSA/PSACR_002/DF_demo/July"), 
+                     conflicts = "overwrite")
+
+# import data: July
+July_general <- readr::read_csv(OSF_download$local_path) 
+rm(OSF_download)
+
+# download data for August1
+OSF_download <- osfr::osf_retrieve_file("rvfqu") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/PSA/PSACR_002/DF_demo/August1"), 
+                     conflicts = "overwrite")
+
+# import data: August1
+August_a_general <- readr::read_csv(OSF_download$local_path) 
+rm(OSF_download)
+
+# download data for August2
+OSF_download <- osfr::osf_retrieve_file("2a3t9") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/PSA/PSACR_002/DF_demo/August2"), 
+                     conflicts = "overwrite")
+
+# import data: August2
+August_b_general <- readr::read_csv(OSF_download$local_path) 
+rm(OSF_download)
+
+# download data for September
+OSF_download <- osfr::osf_retrieve_file("e7vqp") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/PSA/PSACR_002/DF_demo/September"), 
+                     conflicts = "overwrite")
+
+# import data: September
+September_general <- readr::read_csv(OSF_download$local_path) 
+rm(OSF_download)
+
+# download data for October
+OSF_download <- osfr::osf_retrieve_file("grxtb") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/PSA/PSACR_002/DF_demo/October"), 
+                     conflicts = "overwrite")
+
+# import data: October
+October_general <- readr::read_csv(OSF_download$local_path) 
+rm(OSF_download)
+
+## continue data processing according to "data pre-processing.Rmd" (https://osf.io/nyvbh)
+
+May2$month <- "May"
+June2$month <- "June"
+July2$month <- "July"
+August_a2$month <- "August"
+August_b2$month <- "August"
+September2$month <- "September"
+October2$month <- "October"
+
+DF_demo <- rbind(May2, June2, July2, August_a2, August_b2, September2, October2)
+rm(May2, June2, July2, August_a2, August_b2, September2, October2)
+
+# examine duplicate ID
+n_occur <- data.frame(table(DF_demo$unique_id))
+n_occur[n_occur$Freq > 1,]
+# 6166368928a08ae218a7252105dc862a5e1b106b__gIHcPPwiIDeq2v4KEfnvFPS0WnCrLkNjFHerNYGyT6hpV0EkvLS1OVw30c-ICJ8Z
+
+## to be able to run the code from "data pre-processing.Rmd" I had to rename column "Final Answer" to "Final.Answer"
+DF_demo <- dplyr::rename(DF_demo, Final.Answer = "Final Answer")
+
+DF_demo <- DF_demo %>%
+  select(unique_id,group_number,shiny_gender,percent_answered,C2_manipulationcheck_answer,C2_manipulationcheck_photo_answer,Final.Answer,month)%>%
+  rename(country = Final.Answer)
+
+DF_demo$condition <- car::recode(DF_demo$group_number,"1='Active Control';2='Active Control';3='Reconstrual';4='Reconstrual';5='Repurposing';6='Repurposing';7='Passive Control';8='Passive Control'") 
+
+DF_general_long <- rbind(May_general, June_general, July_general, August_a_general, August_b_general, September_general, October_general)
+rm(May_general, June_general, July_general, August_a_general, August_b_general, September_general, October_general)  
+
+DF_general_long <- DF_general_long %>% 
+  filter( is.na(unique_id)== FALSE & is.na(answer)== FALSE & answer!="")
+
+DF_general_long <- DF_general_long %>% 
+  select(
+    item_name, answer, unique_id
+  )
+
+# examine duplicate ID
+DF_general_long2 <- DF_general_long %>%
+  group_by(unique_id, item_name) %>%
+  mutate(obs = row_number())
+table(DF_general_long2$obs>1)
+# write.csv(DF_general_long2[DF_general_long2$obs>1,], "DF_general_long2_duplicates.csv")
+# There were 8 duplicate IDs.
+rm(DF_general_long2)
+
+# remove 8 duplicate IDs to merge data
+DF_general_long <- DF_general_long[DF_general_long$unique_id!="093356071560b703a89faa40dd3fb0e061f30d7d__AmELJi9bEuyA-JlOPe8Ta3XSv1N55uzK_MT5QvL2hNWzJ1d6xHKHbl811YQY0plZ" & DF_general_long$unique_id!="160e02dce504312498d92e907968b602ed704e5f__EsHVYSU1dVfuUa0cjLHSyC_KAS2mh2YFLCofE6YlWCdQWjuUiFv4XM4Ql6T21kzP"& DF_general_long$unique_id!="6166368928a08ae218a7252105dc862a5e1b106b__gIHcPPwiIDeq2v4KEfnvFPS0WnCrLkNjFHerNYGyT6hpV0EkvLS1OVw30c-ICJ8Z"& DF_general_long$unique_id!="68a1952d4e274f6cd02e174f0092eba1dbaf133a__uoc3J8q8jWlLkrcpgO951dYt61WTuRXxtXVOFZOsycX_6PFUj2whQ_DaEk9iVk1R"& DF_general_long$unique_id!="767ba33c15fa682c950d9e770fb41fc8d792d71b__K5LgfdOhF7m0tNpb2C29Q3OXU6NhFHAQiCE_JF2f-qRABReiSJZ28QGTlhN09o4Y"& 
+                                     DF_general_long$unique_id!="78f67d9664df38138ca411bb7a32bf254f0e489f__K5LgfdOhF7m0tNpb2C29Q3OXU6NhFHAQiCE_JF2f-qRABReiSJZ28QGTlhN09o4Y"& 
+                                     DF_general_long$unique_id!="938a7ad89dc47b9abf09a94e513c8633e9451ada__nKNcCoHQ5YN-YuXqDYYgqFtsNIgyszIUTkGnhb125q7OrNvyLOr6lC7jyzQwzWz6"& 
+                                     DF_general_long$unique_id!="d0d427a4a9801f88cbd26f9ef8641a03d8742fec__qNSUdKsdZyEgDkI8UzwBHgJ_2Ks02iNsK9tgrm77NLvET5YEwFl74mq9gjPDqrEV",]
+
+## Switch to wide format
+DF_general_wide <- pivot_wider(
+  data = DF_general_long,
+  id_cols = unique_id,
+  names_from = item_name,
+  names_sep = "_",
+  values_from = answer
+)
+
+rm(DF_general_long)  
+
+DF_demo <- merge(DF_demo, DF_general_wide, by="unique_id",all.x = TRUE)
+
+rm(DF_general_wide)
+
+cols_num <- c("C0_age","C0_ses_subjective","C0_education")
+cols_fac <- c("C0_employment", "C0_employment_essential", "condition","shiny_gender", "country","month")
+
+DF_demo$C0_employment <- car::recode(DF_demo$C0_employment,"1='I am employed and earning an income';2='I am employed, but not currently earning an income';3='I am not employed but earning an income outside a formal job';4='I am not employed and not earning an income'")  
+DF_demo$C0_employment_essential <- car::recode(DF_demo$C0_employment_essential,"1='Yes';2='No';3='I am not employed'")  
+
+DF_demo[cols_num] <- sapply(DF_demo[cols_num],as.numeric)
+DF_demo[cols_fac] <- sapply(DF_demo[cols_fac],as.factor)
+
+DF_demo$C0_ses_subjective <- 11 - DF_demo$C0_ses_subjective
+
+## negative emotion
+### baseline
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel scared, fearful, or afraid?" & str_detect(DF_trial$item_name, "negativeemotion_baseline")==TRUE] <- "C2_negativeemotion_baseline_fear"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel angry, irritated, or annoyed?" & str_detect(DF_trial$item_name, "negativeemotion_baseline")==TRUE] <- "C2_negativeemotion_baseline_anger"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel sad, downhearted, or unhappy?" & str_detect(DF_trial$item_name, "negativeemotion_baseline")==TRUE] <- "C2_negativeemotion_baseline_sadness"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel stressed, nervous, or overwhelmed?" & str_detect(DF_trial$item_name, "negativeemotion_baseline")==TRUE] <- "C2_negativeemotion_baseline_stress"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel hate, distrust, or suspicion?" & str_detect(DF_trial$item_name, "negativeemotion_baseline")==TRUE] <- "C2_negativeemotion_baseline_distrust"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel a lack of companionship?" & str_detect(DF_trial$item_name, "negativeemotion_baseline")==TRUE] <- "C2_negativeemotion_baseline_loneliness_1"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel left out?" & str_detect(DF_trial$item_name, "negativeemotion_baseline")==TRUE] <- "C2_negativeemotion_baseline_loneliness_2"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel socially isolated?" & str_detect(DF_trial$item_name, "negativeemotion_baseline")==TRUE] <- "C2_negativeemotion_baseline_loneliness_3"
+
+
+### state
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel scared, fearful, or afraid?" & str_detect(DF_trial$item_name, "negativeemotion_state")==TRUE] <- "C2_negativeemotion_state_fear"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel angry, irritated, or annoyed?" & str_detect(DF_trial$item_name, "negativeemotion_state")==TRUE] <- "C2_negativeemotion_state_anger"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel sad, downhearted, or unhappy?" & str_detect(DF_trial$item_name, "negativeemotion_state")==TRUE] <- "C2_negativeemotion_state_sadness"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel stressed, nervous, or overwhelmed?" & str_detect(DF_trial$item_name, "negativeemotion_state")==TRUE] <- "C2_negativeemotion_state_stress"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel hate, distrust, or suspicion?" & str_detect(DF_trial$item_name, "negativeemotion_state")==TRUE] <- "C2_negativeemotion_state_distrust"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel a lack of companionship?" & str_detect(DF_trial$item_name, "negativeemotion_state")==TRUE] <- "C2_negativeemotion_state_loneliness_1"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel left out?" & str_detect(DF_trial$item_name, "negativeemotion_state")==TRUE] <- "C2_negativeemotion_state_loneliness_2"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel socially isolated?" & str_detect(DF_trial$item_name, "negativeemotion_state")==TRUE] <- "C2_negativeemotion_state_loneliness_3"
+
+
+### anticipated
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel scared, fearful, or afraid?" & str_detect(DF_trial$item_name, "negativeemotion_anticipated")==TRUE] <- "C2_negativeemotion_anticipated_fear"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel angry, irritated, or annoyed?" & str_detect(DF_trial$item_name, "negativeemotion_anticipated")==TRUE] <- "C2_negativeemotion_anticipated_anger"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel sad, downhearted, or unhappy?" & str_detect(DF_trial$item_name, "negativeemotion_anticipated")==TRUE] <- "C2_negativeemotion_anticipated_sadness"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel stressed, nervous, or overwhelmed?" & str_detect(DF_trial$item_name, "negativeemotion_anticipated")==TRUE] <- "C2_negativeemotion_anticipated_stress"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel hate, distrust, or suspicion?" & str_detect(DF_trial$item_name, "negativeemotion_anticipated")==TRUE] <- "C2_negativeemotion_anticipated_distrust"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel a lack of companionship?" & str_detect(DF_trial$item_name, "negativeemotion_anticipated")==TRUE] <- "C2_negativeemotion_anticipated_loneliness_1"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel left out?" & str_detect(DF_trial$item_name, "negativeemotion_anticipated")==TRUE] <- "C2_negativeemotion_anticipated_loneliness_2"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel socially isolated?" & str_detect(DF_trial$item_name, "negativeemotion_anticipated")==TRUE] <- "C2_negativeemotion_anticipated_loneliness_3"
+
+
+### about COVID
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_negativeemotion_covid19_n")==TRUE)|(str_detect(DF_trial$item_name, "C2_negativeemotion_covid19_p")==TRUE)] <- "C2_negativeemotion_covid19"
+
+
+### photo
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_negativeemotion_photo_1_")==TRUE)] <- "C2_negativeemotion_photo_1"
+
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_negativeemotion_photo_2")==TRUE)] <- "C2_negativeemotion_photo_2"
+
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_negativeemotion_photo_3")==TRUE)] <- "C2_negativeemotion_photo_3"
+
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_negativeemotion_photo_4")==TRUE)] <- "C2_negativeemotion_photo_4"
+
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_negativeemotion_photo_5")==TRUE)] <- "C2_negativeemotion_photo_5"
+
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_negativeemotion_photo_6")==TRUE)] <- "C2_negativeemotion_photo_6"
+
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_negativeemotion_photo_7")==TRUE)] <- "C2_negativeemotion_photo_7"
+
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_negativeemotion_photo_8")==TRUE)] <- "C2_negativeemotion_photo_8"
+
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_negativeemotion_photo_9")==TRUE)] <- "C2_negativeemotion_photo_9"
+
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_negativeemotion_photo_10")==TRUE)] <- "C2_negativeemotion_photo_10"
+
+
+
+## positive emotion
+### baseline
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel hopeful, optimistic, or encouraged?" & str_detect(DF_trial$item_name, "positiveemotion_baseline")==TRUE] <- "C2_positiveemotion_baseline_hope"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel grateful, appreciative, or thankful?" & str_detect(DF_trial$item_name, "positiveemotion_baseline")==TRUE] <- "C2_positiveemotion_baseline_gratitude"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel love, closeness, or trust?" & str_detect(DF_trial$item_name, "positiveemotion_baseline")==TRUE] <- "C2_positiveemotion_baseline_love"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel inspired, uplifted, or elevated?" & str_detect(DF_trial$item_name, "positiveemotion_baseline")==TRUE] <- "C2_positiveemotion_baseline_inspiration"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel serene, content, or peaceful?" & str_detect(DF_trial$item_name, "positiveemotion_baseline")==TRUE] <- "C2_positiveemotion_baseline_serenity"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel understood by others?" & str_detect(DF_trial$item_name, "positiveemotion_baseline")==TRUE] <- "C2_positiveemotion_baseline_socialconnected_1"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel cared for by others?" & str_detect(DF_trial$item_name, "positiveemotion_baseline")==TRUE] <- "C2_positiveemotion_baseline_socialconnected_2"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel that you can count on others?" & str_detect(DF_trial$item_name, "positiveemotion_baseline")==TRUE] <- "C2_positiveemotion_baseline_socialconnected_3"
+
+### state
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel hopeful, optimistic, or encouraged?" & str_detect(DF_trial$item_name, "positiveemotion_state")==TRUE] <- "C2_positiveemotion_state_hope"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel grateful, appreciative, or thankful?" & str_detect(DF_trial$item_name, "positiveemotion_state")==TRUE] <- "C2_positiveemotion_state_gratitude"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel love, closeness, or trust?" & str_detect(DF_trial$item_name, "positiveemotion_state")==TRUE] <- "C2_positiveemotion_state_love"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel inspired, uplifted, or elevated?" & str_detect(DF_trial$item_name, "positiveemotion_state")==TRUE] <- "C2_positiveemotion_state_inspiration"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel serene, content, or peaceful?" & str_detect(DF_trial$item_name, "positiveemotion_state")==TRUE] <- "C2_positiveemotion_state_serenity"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel understood by others?" & str_detect(DF_trial$item_name, "positiveemotion_state")==TRUE] <- "C2_positiveemotion_state_socialconnected_1"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel cared for by others?" & str_detect(DF_trial$item_name, "positiveemotion_state")==TRUE] <- "C2_positiveemotion_state_socialconnected_2"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel that you can count on others?" & str_detect(DF_trial$item_name, "positiveemotion_state")==TRUE] <- "C2_positiveemotion_state_socialconnected_3"
+
+
+### anticipated
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel hopeful, optimistic, or encouraged?" & str_detect(DF_trial$item_name, "positiveemotion_anticipated")==TRUE] <- "C2_positiveemotion_anticipated_hope"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel grateful, appreciative, or thankful?" & str_detect(DF_trial$item_name, "positiveemotion_anticipated")==TRUE] <- "C2_positiveemotion_anticipated_gratitude"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel love, closeness, or trust?" & str_detect(DF_trial$item_name, "positiveemotion_anticipated")==TRUE] <- "C2_positiveemotion_anticipated_love"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel inspired, uplifted, or elevated?" & str_detect(DF_trial$item_name, "positiveemotion_anticipated")==TRUE] <- "C2_positiveemotion_anticipated_inspiration"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel serene, content, or peaceful?" & str_detect(DF_trial$item_name, "positiveemotion_anticipated")==TRUE] <- "C2_positiveemotion_anticipated_serenity"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel understood by others?" & str_detect(DF_trial$item_name, "positiveemotion_anticipated")==TRUE] <- "C2_positiveemotion_anticipated_socialconnected_1"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel cared for by others?" & str_detect(DF_trial$item_name, "positiveemotion_anticipated")==TRUE] <- "C2_positiveemotion_anticipated_socialconnected_2"
+
+DF_trial$item_name[DF_trial$seen_item=="To what extent do you feel that you can count on others?" & str_detect(DF_trial$item_name, "positiveemotion_anticipated")==TRUE] <- "C2_positiveemotion_anticipated_socialconnected_3"
+
+
+### about COVID
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_positiveemotion_covid19_n")==TRUE)|(str_detect(DF_trial$item_name, "C2_positiveemotion_covid19_p")==TRUE)] <- "C2_positiveemotion_covid19"
+
+
+### photo
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_positiveemotion_photo_1_")==TRUE)] <- "C2_positiveemotion_photo_1"
+
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_positiveemotion_photo_2")==TRUE)] <- "C2_positiveemotion_photo_2"
+
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_positiveemotion_photo_3")==TRUE)] <- "C2_positiveemotion_photo_3"
+
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_positiveemotion_photo_4")==TRUE)] <- "C2_positiveemotion_photo_4"
+
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_positiveemotion_photo_5")==TRUE)] <- "C2_positiveemotion_photo_5"
+
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_positiveemotion_photo_6")==TRUE)] <- "C2_positiveemotion_photo_6"
+
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_positiveemotion_photo_7")==TRUE)] <- "C2_positiveemotion_photo_7"
+
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_positiveemotion_photo_8")==TRUE)] <- "C2_positiveemotion_photo_8"
+
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_positiveemotion_photo_9")==TRUE)] <- "C2_positiveemotion_photo_9"
+
+DF_trial$item_name[(str_detect(DF_trial$item_name, "C2_positiveemotion_photo_10")==TRUE)] <- "C2_positiveemotion_photo_10"
+
+
+## exploratory outcomes
+DF_trial$item_name[DF_trial$seen_item=="drink too much alcohol"] <- "C2_intention_harmful_alcohol"
+
+DF_trial$item_name[DF_trial$seen_item=="use too much tobacco (e.g., smoke/vape) or other recreational drugs"] <- "C2_intention_harmful_drug"
+
+DF_trial$item_name[DF_trial$seen_item=="yell at someone"] <- "C2_intention_harmful_yell"
+
+DF_trial$item_name[DF_trial$seen_item=="take anger out online"] <- "C2_intention_harmful_angeronline"
+
+DF_trial$item_name[DF_trial$seen_item=="spend too much time on media"] <- "C2_intention_harmful_readmedia"
+
+DF_trial$item_name[DF_trial$seen_item=="eat healthy food"] <- "C2_intention_beneficial_eat"
+
+DF_trial$item_name[DF_trial$seen_item=="get enough physical activity"] <- "C2_intention_beneficial_exercise"
+
+DF_trial$item_name[DF_trial$seen_item=="practice healthy sleep habits (*for example, going to bed and waking at regular hours*)"] <- "C2_intention_beneficial_sleep"
+
+DF_trial$item_name[DF_trial$seen_item=="wash hands regularly for at least 20 seconds"] <- "C2_intention_beneficial_washhands"
+
+DF_trial$item_name[DF_trial$seen_item=="follow a stay-at-home order or advisory stringently (*if there isn't an order in your region now, assume that one is imposed*)"] <- "C2_intention_beneficial_stayathome"
+
+DF_trial$item_name[DF_trial$seen_item=="interpreting the situation in a new way."] <- "C2_frequency_reconstrual"
+DF_trial$item_name[DF_trial$seen_item=="reflecting on my thoughts and feelings."] <- "C2_frequency_reflect"
+DF_trial$item_name[DF_trial$seen_item=="focusing on any good I can find in the situation."] <- "C2_frequency_repurposing"
+DF_trial$item_name[DF_trial$seen_item=="responding as I naturally would"] <- "C2_frequency_natural"
+
+DF_trial$item_name[str_detect(DF_trial$item_name, "C2_globalchange_negative")==TRUE] <- "C2_globalchange_negative"
+
+DF_trial$item_name[str_detect(DF_trial$item_name, "C2_globalchange_positive")==TRUE] <- "C2_globalchange_positive"
+
+
+data_wide <- pivot_wider(
+  data = DF_trial,
+  id_cols = unique_id,
+  names_from = item_name,
+  names_sep = "_",
+  values_from = answer
+)
+
+cols_5point <- c("C2_negativeemotion_baseline_fear","C2_negativeemotion_baseline_anger","C2_negativeemotion_baseline_sadness","C2_negativeemotion_baseline_stress","C2_negativeemotion_baseline_distrust",
+                 "C2_negativeemotion_state_fear","C2_negativeemotion_state_anger","C2_negativeemotion_state_sadness","C2_negativeemotion_state_stress","C2_negativeemotion_state_distrust",
+                 
+                 "C2_negativeemotion_anticipated_fear","C2_negativeemotion_anticipated_anger","C2_negativeemotion_anticipated_sadness","C2_negativeemotion_anticipated_stress","C2_negativeemotion_anticipated_distrust",
+                 
+                 "C2_negativeemotion_photo_1","C2_negativeemotion_photo_2","C2_negativeemotion_photo_3","C2_negativeemotion_photo_4","C2_negativeemotion_photo_5","C2_negativeemotion_photo_6","C2_negativeemotion_photo_7","C2_negativeemotion_photo_8","C2_negativeemotion_photo_9","C2_negativeemotion_photo_10",
+                 
+                 "C2_positiveemotion_baseline_hope","C2_positiveemotion_baseline_gratitude","C2_positiveemotion_baseline_love","C2_positiveemotion_baseline_inspiration","C2_positiveemotion_baseline_serenity",
+                 
+                 "C2_positiveemotion_state_hope","C2_positiveemotion_state_gratitude","C2_positiveemotion_state_love","C2_positiveemotion_state_inspiration","C2_positiveemotion_state_serenity",
+                 
+                 "C2_positiveemotion_anticipated_hope","C2_positiveemotion_anticipated_gratitude","C2_positiveemotion_anticipated_love","C2_positiveemotion_anticipated_inspiration","C2_positiveemotion_anticipated_serenity",
+                 
+                 "C2_positiveemotion_photo_1","C2_positiveemotion_photo_2","C2_positiveemotion_photo_3","C2_positiveemotion_photo_4","C2_positiveemotion_photo_5","C2_positiveemotion_photo_6","C2_positiveemotion_photo_7","C2_positiveemotion_photo_8","C2_positiveemotion_photo_9","C2_positiveemotion_photo_10",
+                 
+                 "C2_negativeemotion_covid19", "C2_positiveemotion_covid19",
+                 "C2_globalchange_negative","C2_globalchange_positive",
+                 
+                 "C2_negativeemotion_baseline_loneliness_1", "C2_negativeemotion_baseline_loneliness_2","C2_negativeemotion_baseline_loneliness_3",
+                 "C2_negativeemotion_state_loneliness_1", "C2_negativeemotion_state_loneliness_2","C2_negativeemotion_state_loneliness_3",
+                 "C2_negativeemotion_anticipated_loneliness_1", "C2_negativeemotion_anticipated_loneliness_2","C2_negativeemotion_anticipated_loneliness_3",
+                 
+                 "C2_positiveemotion_baseline_socialconnected_1","C2_positiveemotion_baseline_socialconnected_2","C2_positiveemotion_baseline_socialconnected_3",
+                 "C2_positiveemotion_state_socialconnected_1","C2_positiveemotion_state_socialconnected_2","C2_positiveemotion_state_socialconnected_3",
+                 "C2_positiveemotion_anticipated_socialconnected_1","C2_positiveemotion_anticipated_socialconnected_2","C2_positiveemotion_anticipated_socialconnected_3",
+                 "C2_frequency_natural","C2_frequency_reflect","C2_frequency_reconstrual","C2_frequency_repurposing"
+)
+
+
+cols_7point <- c("C2_intention_harmful_alcohol","C2_intention_harmful_drug","C2_intention_harmful_yell","C2_intention_harmful_angeronline","C2_intention_harmful_readmedia","C2_intention_beneficial_eat","C2_intention_beneficial_exercise","C2_intention_beneficial_sleep","C2_intention_beneficial_washhands","C2_intention_beneficial_stayathome",
+                 "C2_motivation_implementstrategy","C2_belief_effectivestrategy")
+
+## this original chunk of code did not work
+# data_wide[cols_5point] <- sapply(data_wide[cols_5point],as.numeric)
+# data_wide[cols_7point] <- sapply(data_wide[cols_7point],as.numeric)
+
+## this is my workaround 
+data_wide[cols_5point] <- lapply(data_wide[cols_5point],
+                                  function(x){
+                                    as.numeric(as.character(x))
+                                  })
+
+data_wide[cols_7point] <- lapply(data_wide[cols_7point],
+                                  function(x){
+                                    as.numeric(as.character(x))
+                                  })
+
+
+## from here on their code continues 
+data_wide <- data_wide %>%
+  mutate_at(cols_5point,
+            function(x){6-x})
+
+data_wide <- data_wide %>%
+  mutate_at(cols_7point,
+            function(x) 8-x)
+
+DF_demo$instructioncheck_pass<-0
+DF_demo$instructioncheck_pass[(DF_demo$group_number==7 | DF_demo$group_number==8) & (str_detect(DF_demo$C2_manipulationcheck_answer, "naturally")==TRUE)]<-1
+DF_demo$instructioncheck_pass[(DF_demo$group_number==5 | DF_demo$group_number==6) & (str_detect(DF_demo$C2_manipulationcheck_answer, "refocusing")==TRUE)]<-1
+DF_demo$instructioncheck_pass[(DF_demo$group_number==3 | DF_demo$group_number==4) & (str_detect(DF_demo$C2_manipulationcheck_answer, "rethinking")==TRUE)]<-1
+DF_demo$instructioncheck_pass[(DF_demo$group_number==1 | DF_demo$group_number==2) & (str_detect(DF_demo$C2_manipulationcheck_answer, "reflecting")==TRUE)]<-1
+
+DF_demo$photo_exclude<-0
+DF_demo$photo_exclude[(DF_demo$C2_manipulationcheck_photo_answer!="puppy")]<-1
+
+DF_demo$percent_answered_exclude<-0
+DF_demo$percent_answered_exclude[(DF_demo$percent_answered<50)]<-1
+
+DF_demo$exclude<-0
+DF_demo$exclude[(DF_demo$percent_answered<50) | (DF_demo$instructioncheck_pass==0 & DF_demo$C2_manipulationcheck_photo_answer!="puppy")]<-1
+
+DF_demo_no_exclusion<-DF_demo
+data_wide_no_exclusion<-data_wide
+
+DF_demo <- DF_demo %>% 
+  filter(exclude == 0)
+
+data_wide<-merge(DF_demo, data_wide, by="unique_id",all.x = TRUE)
+data_wide$unique_id <- as.factor(data_wide$unique_id)
+
+data_wide_no_exclusion<-merge(DF_demo_no_exclusion, data_wide_no_exclusion, by="unique_id",all.x = TRUE)
+data_wide_no_exclusion$unique_id <- as.factor(data_wide_no_exclusion$unique_id)
+
+data_wide$contrast_1  <- car::recode(data_wide$condition, "'Active Control'=1/2;'Passive Control'=1/2;'Reconstrual'= (-1/2);'Repurposing'= (-1/2)")
+data_wide$contrast_2  <- car::recode(data_wide$condition, "'Active Control'=0;'Passive Control'=0;'Reconstrual'= 1/2;'Repurposing'= (-1/2)")
+data_wide$contrast_control  <- car::recode(data_wide$condition, "'Active Control'=1/2;'Passive Control'= (-1/2);'Reconstrual'= 0;'Repurposing'= 0")
+
+data_wide_no_exclusion$contrast_1  <- car::recode(data_wide_no_exclusion$condition, "'Active Control'=1/2;'Passive Control'=1/2;'Reconstrual'= (-1/2);'Repurposing'= (-1/2)")
+data_wide_no_exclusion$contrast_2  <- car::recode(data_wide_no_exclusion$condition, "'Active Control'=0;'Passive Control'=0;'Reconstrual'= 1/2;'Repurposing'= (-1/2)")
+data_wide_no_exclusion$contrast_control  <- car::recode(data_wide_no_exclusion$condition, "'Active Control'=1/2;'Passive Control'= (-1/2);'Reconstrual'= 0;'Repurposing'= 0")
+
+contrast <- c("contrast_1","contrast_2","contrast_control")
+
+data_wide<- data_wide %>% 
+  mutate_at(contrast,
+            function(x) as.numeric(x))
+
+data_wide_no_exclusion<- data_wide_no_exclusion %>% 
+  mutate_at(contrast,
+            function(x) as.numeric(x))
+
+# reliability & composite score 
+
+# Reliability of measures. For items from the modified Differential Emotions Scale92, we plan to create overall negative emotion scores at each time point by averaging the five negative emotions (fear, anger, sadness, distrust, and stress) and overall positive emotion scores at each time point by averaging the five positive emotions (hope, gratitude, love, inspiration, and serenity) if the average inter-item correlation is above .40 for negative emotions and for positive emotions, respectively.
+
+psych::alpha(data_wide[,c("C2_negativeemotion_baseline_fear","C2_negativeemotion_baseline_anger","C2_negativeemotion_baseline_sadness","C2_negativeemotion_baseline_stress","C2_negativeemotion_baseline_distrust")], na.rm = TRUE)
+# raw_alpha std.alpha G6(smc) average_r S/N    ase mean   sd median_r
+#       0.83      0.83    0.81       0.5   5 0.0018  2.4 0.89     0.53
+
+psych::alpha(data_wide[,c("C2_positiveemotion_baseline_hope","C2_positiveemotion_baseline_gratitude","C2_positiveemotion_baseline_love","C2_positiveemotion_baseline_inspiration","C2_positiveemotion_baseline_serenity")], na.rm = TRUE)
+# raw_alpha std.alpha G6(smc) average_r S/N   ase mean   sd median_r
+#       0.82      0.82    0.79      0.48 4.5 0.002  3.2 0.82     0.46
+
+psych::alpha(data_wide[,c("C2_negativeemotion_state_fear","C2_negativeemotion_state_anger","C2_negativeemotion_state_sadness","C2_negativeemotion_state_stress","C2_negativeemotion_state_distrust")], na.rm = TRUE)
+# raw_alpha std.alpha G6(smc) average_r S/N    ase mean   sd median_r
+#       0.86      0.86    0.83      0.54 5.9 0.0016  2.4 0.93     0.56
+
+psych::alpha(data_wide[,c("C2_positiveemotion_state_hope","C2_positiveemotion_state_gratitude","C2_positiveemotion_state_love","C2_positiveemotion_state_inspiration","C2_positiveemotion_state_serenity")], na.rm = TRUE)
+# raw_alpha std.alpha G6(smc) average_r S/N    ase mean   sd median_r
+#       0.84      0.84    0.82      0.51 5.3 0.0017  3.1 0.89      0.5
+
+
+data_wide <- data_wide %>% 
+  rowwise() %>%
+  mutate(
+    
+    negativeemotion_baseline_mean = mean(c(C2_negativeemotion_baseline_fear,C2_negativeemotion_baseline_anger,C2_negativeemotion_baseline_sadness,C2_negativeemotion_baseline_stress,C2_negativeemotion_baseline_distrust)),
+    
+    positiveemotion_baseline_mean = mean(c(C2_positiveemotion_baseline_hope,C2_positiveemotion_baseline_gratitude,C2_positiveemotion_baseline_love,C2_positiveemotion_baseline_inspiration,C2_positiveemotion_baseline_serenity)),
+    
+    negativeemotion_state_mean = mean(c(C2_negativeemotion_state_fear,C2_negativeemotion_state_anger,C2_negativeemotion_state_sadness,C2_negativeemotion_state_stress,C2_negativeemotion_state_distrust)),
+    
+    positiveemotion_state_mean = mean(c(C2_positiveemotion_state_hope,C2_positiveemotion_state_gratitude,C2_positiveemotion_state_love,C2_positiveemotion_state_inspiration,C2_positiveemotion_state_serenity)),                                             
+    
+    negativeemotion_anticipated_mean = mean(c(C2_negativeemotion_anticipated_fear,C2_negativeemotion_anticipated_anger,C2_negativeemotion_anticipated_sadness,C2_negativeemotion_anticipated_stress,C2_negativeemotion_anticipated_distrust)),
+    
+    positiveemotion_anticipated_mean = mean(c(C2_positiveemotion_anticipated_hope,C2_positiveemotion_anticipated_gratitude,C2_positiveemotion_anticipated_love,C2_positiveemotion_anticipated_inspiration,C2_positiveemotion_anticipated_serenity)),
+    
+    loneliness_baseline_mean = mean(c(C2_negativeemotion_baseline_loneliness_1, C2_negativeemotion_baseline_loneliness_2,C2_negativeemotion_baseline_loneliness_3)),
+    
+    loneliness_state_mean = mean(c(C2_negativeemotion_state_loneliness_1, C2_negativeemotion_state_loneliness_2,C2_negativeemotion_state_loneliness_3)),
+    
+    loneliness_anticipated_mean = mean(c(C2_negativeemotion_anticipated_loneliness_1, C2_negativeemotion_anticipated_loneliness_2,C2_negativeemotion_anticipated_loneliness_3)),
+    
+    socialconnected_baseline_mean = mean(c(C2_positiveemotion_baseline_socialconnected_1, C2_positiveemotion_baseline_socialconnected_2,C2_positiveemotion_baseline_socialconnected_3)),
+    
+    socialconnected_state_mean = mean(c(C2_positiveemotion_state_socialconnected_1, C2_positiveemotion_state_socialconnected_2,C2_positiveemotion_state_socialconnected_3)),
+    
+    socialconnected_anticipated_mean = mean(c(C2_positiveemotion_anticipated_socialconnected_1, C2_positiveemotion_anticipated_socialconnected_2,C2_positiveemotion_anticipated_socialconnected_3))
+  )
+
+################### no_exclusion
+data_wide_no_exclusion <- data_wide_no_exclusion %>% 
+  rowwise() %>%
+  mutate(
+    
+    negativeemotion_baseline_mean = mean(c(C2_negativeemotion_baseline_fear,C2_negativeemotion_baseline_anger,C2_negativeemotion_baseline_sadness,C2_negativeemotion_baseline_stress,C2_negativeemotion_baseline_distrust)),
+    
+    positiveemotion_baseline_mean = mean(c(C2_positiveemotion_baseline_hope,C2_positiveemotion_baseline_gratitude,C2_positiveemotion_baseline_love,C2_positiveemotion_baseline_inspiration,C2_positiveemotion_baseline_serenity)),
+    
+    negativeemotion_state_mean = mean(c(C2_negativeemotion_state_fear,C2_negativeemotion_state_anger,C2_negativeemotion_state_sadness,C2_negativeemotion_state_stress,C2_negativeemotion_state_distrust)),
+    
+    positiveemotion_state_mean = mean(c(C2_positiveemotion_state_hope,C2_positiveemotion_state_gratitude,C2_positiveemotion_state_love,C2_positiveemotion_state_inspiration,C2_positiveemotion_state_serenity)),                                             
+    negativeemotion_anticipated_mean = mean(c(C2_negativeemotion_anticipated_fear,C2_negativeemotion_anticipated_anger,C2_negativeemotion_anticipated_sadness,C2_negativeemotion_anticipated_stress,C2_negativeemotion_anticipated_distrust)),
+    
+    positiveemotion_anticipated_mean = mean(c(C2_positiveemotion_anticipated_hope,C2_positiveemotion_anticipated_gratitude,C2_positiveemotion_anticipated_love,C2_positiveemotion_anticipated_inspiration,C2_positiveemotion_anticipated_serenity)),
+    
+    loneliness_baseline_mean = mean(c(C2_negativeemotion_baseline_loneliness_1, C2_negativeemotion_baseline_loneliness_2,C2_negativeemotion_baseline_loneliness_3)),
+    
+    loneliness_state_mean = mean(c(C2_negativeemotion_state_loneliness_1, C2_negativeemotion_state_loneliness_2,C2_negativeemotion_state_loneliness_3)),
+    
+    loneliness_anticipated_mean = mean(c(C2_negativeemotion_anticipated_loneliness_1, C2_negativeemotion_anticipated_loneliness_2,C2_negativeemotion_anticipated_loneliness_3)),
+    
+    socialconnected_baseline_mean = mean(c(C2_positiveemotion_baseline_socialconnected_1, C2_positiveemotion_baseline_socialconnected_2,C2_positiveemotion_baseline_socialconnected_3)),
+    
+    socialconnected_state_mean = mean(c(C2_positiveemotion_state_socialconnected_1, C2_positiveemotion_state_socialconnected_2,C2_positiveemotion_state_socialconnected_3)),
+    
+    socialconnected_anticipated_mean = mean(c(C2_positiveemotion_anticipated_socialconnected_1, C2_positiveemotion_anticipated_socialconnected_2,C2_positiveemotion_anticipated_socialconnected_3))
+  )
+
+### At this point, data_wide should be an up-to-date version of the PSACR002 data for further analyses
+
+PSACR_002_data <- data_wide
+
+# # keep the global environment tidy 
+rm(cols_5point,
+   cols_7point, 
+   cols_fac, 
+   cols_num, 
+   contrast, 
+   data_wide,
+   data_wide_no_exclusion, 
+   DF_demo, 
+   DF_demo_no_exclusion,
+   DF_trial, 
+   n_occur)
+
+```
+
+##### process raw data
+
+```{r processing PSACR_002}
+
+###
+## MASC: Cognitive_Reappraisal
+
+# create directories for Cognitive_Reappraisal
+dir.create(file.path("data/processed/PSA/PSACR_002/Cognitive_Reappraisal"))
+
+# source processing script / function
+source(file.path("code/processing/PSACR_002/PSACR_002__Cognitive_Reappraisal.R"))
+
+# create item & ipd level data
+convert_raw_data_Cognitive_Reappraisal_fun(
+  data = PSACR_002_data,
+  output_folder = file.path("data/processed/PSA/PSACR_002/Cognitive_Reappraisal"))
+
+# create site level data
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/PSA/PSACR_002/Cognitive_Reappraisal/PSACR_002__Cognitive_Reappraisal__IPD_Level.csv")),
+  output_folder = file.path("data/processed/PSA/PSACR_002/Cognitive_Reappraisal/"),
+  suppress_list_output = TRUE)
+
+
+###
+# keep the global environment tidy
+rm(PSACR_002_data,
+   convert_raw_data_Cognitive_Reappraisal_fun)
+
+```
+
+#### PSACR_003
+
+Main Publication:
+<https://www.pnas.org/doi/full/10.1073/pnas.2111091119>
+
+Repository: <https://osf.io/fc9y7/>
+
+Groups: "Autonomy support" & "Controlling"
+
+Dependent Variable: defiance (mean of defy_1 - defy_4)
+
+##### download raw data
+
+##### preprocess raw data
+
+```{r prepare PSACR_003}
+
+# create directories for PSACR_003
+dir.create(file.path("data/raw/PSA/PSACR_003"))
+dir.create(file.path("data/processed/PSA/PSACR_003"))
+
+# download data 
+# SDT_combined_data.csv
+PSACR_003_SDT_combined_data_download <- osfr::osf_retrieve_file("3prcs") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/PSA/PSACR_003"), 
+                     conflicts = "overwrite")
+# PSA combined data.csv
+PSACR_003_PSA_combined_data_download <- osfr::osf_retrieve_file("huc3w") %>%
+  osfr::osf_download(., 
+                     path = file.path("data/raw/PSA/PSACR_003"), 
+                     conflicts = "overwrite")
+
+# import data: PSACR_003
+# SDT_combined_data.csv
+PSACR_003_SDT_combined_data <- readr::read_csv(PSACR_003_SDT_combined_data_download$local_path) 
+# PSA combined data.csv
+PSACR_003_PSA_combined_data <- readr::read_csv(PSACR_003_PSA_combined_data_download$local_path) 
+
+## the following chunks of code are mostly copied from the PSA code to apply the according data cleaning (PSACR 003 Confirmatory Analyses_shared_all sample.Rmd; https://osf.io/6dxv7)
+## The variable "RecordedDate" is not in SDTdf. There is only a variable with the info for the month - which is not sufficient for how the date is used in later calculations around the variable "stringency rise date" in the original code (days/weeks). Due to these issues, the variable "RecordedDate" and the dataset "owid-covid-data.csv" are removed from preprocessing. 
+
+### ### ### ### ###
+### SDT DATA
+### ### ### ### ### 
+SDTdf <- PSACR_003_SDT_combined_data
+
+# recode condition
+SDTdf$cond[SDTdf$condition == 1] <- 3 #Autonomy support
+SDTdf$cond[SDTdf$condition == 2] <- 1 #Controlling
+SDTdf$cond[SDTdf$condition == 3] <- 2 #Neutral
+
+# recode gender
+SDTdf$gender[SDTdf$gender == 1] <- "Male"
+SDTdf$gender[SDTdf$gender == 2] <- "Female"
+SDTdf$gender[SDTdf$gender == 3] <- "Other"
+SDTdf$gender[SDTdf$gender == 4] <- "Other"
+SDTdf$gender <- as.factor(SDTdf$gender)
+
+### ### ### ### ###
+### PSA DATA
+### ### ### ### ### 
+PSAdf <- PSACR_003_PSA_combined_data
+
+# recode condition
+PSAdf$cond[PSAdf$condition == "autonomy_message"] <- 3 #Autonomy support
+PSAdf$cond[PSAdf$condition == "controlling_message"] <- 1 #Controlling
+PSAdf$cond[PSAdf$condition == "no_message"] <- 2 #Neutral
+PSAdf <- dplyr::select(PSAdf, -c("condition"))
+
+#### Combine the data sets ####
+combined1_df <- list(SDTdf, PSAdf)
+combined1_df <- dplyr::bind_rows(combined1_df, .id = "dataset")
+combined1_df$dataset[combined1_df$dataset == 1] <- "SDT"
+combined1_df$dataset[combined1_df$dataset == 2] <- "PSA"
+combined1_df$labID[is.na(combined1_df$labID)] <- 0 #all PSA data is given value 0 for the labID variable
+combined1_df$exclude[is.na(combined1_df$exclude)] <- 0 #all PSA data is given value 0 for the exclude var
+
+#### Recode some country codes to match with the covid case datasets ####
+combined1_df$COUNID[combined1_df$COUNID == 'XKS'] <- 'KOS'
+combined1_df$COUNID[combined1_df$COUNID == 'IRAN'] <- 'IRN'
+combined1_df$COUNID[combined1_df$COUNID == 'SLO'] <- 'SVK'
+combined1_df$COUNID[combined1_df$COUNID == 'VIR'] <- 'VGB'
+
+combined_df <- combined1_df
+
+#### Exclude erroneous data ####
+combined_df$intention_6m[combined_df$exclude == 1] <- NA 
+combined_df$intention_6m[combined_df$labID == 26] <- NA
+
+combined_df$avoid_6m_1[combined_df$exclude == 1] <- NA 
+combined_df$avoid_6m_1[combined_df$labID == 26] <- NA
+
+combined_df$avoid_6m_2[combined_df$exclude == 1] <- NA 
+combined_df$avoid_6m_2[combined_df$labID == 26] <- NA
+
+combined_df$avoid_6m_3[combined_df$exclude == 1] <- NA 
+combined_df$avoid_6m_3[combined_df$labID == 26] <- NA
+
+combined_df$avoid_6m_4[combined_df$exclude == 1] <- NA 
+combined_df$avoid_6m_4[combined_df$labID == 26] <- NA
+
+combined_df$avoid_6m_5[combined_df$exclude == 1] <- NA 
+combined_df$avoid_6m_5[combined_df$labID == 26] <- NA
+
+combined_df$avoid_6m_6[combined_df$exclude == 1] <- NA 
+combined_df$avoid_6m_6[combined_df$labID == 26] <- NA
+
+combined_df$avoid_6m_7[combined_df$exclude == 1] <- NA 
+combined_df$avoid_6m_7[combined_df$labID == 26] <- NA
+
+# exclude data that COUNID cannot be matched
+data_no_country <- combined_df %>% 
+  dplyr::filter(is.na(COUNID)) # identify data that cannot be matched with country
+combined_df <- combined_df %>% 
+  dplyr::filter(!is.na(COUNID)) # filter out data that cannot be matched with country # this leaves n = 27,190
+
+# store as PSACR_003_data
+PSACR_003_data <- combined_df
+
+# keep the global environment tidy 
+gdata::keep(PSACR_003_data, sure = TRUE)
+
+```
+
+##### process raw data
+
+```{r processing PSACR_003}
+
+###
+## MASC: Self_Determination
+
+# create directories for Self_Determination 
+dir.create(file.path("data/processed/PSA/PSACR_003/Self_Determination"))
+
+# source processing script / function 
+source(file.path("code/processing/PSACR_003/PSACR_003__Self_Determination.R"))
+
+# create item & ipd level data
+convert_raw_data_Self_Determination_fun(data = PSACR_003_data, 
+                            output_folder = file.path("data/processed/PSA/PSACR_003/Self_Determination"))
+
+# create site level data 
+MetaPipeX::summarize_sites(
+  data = readr::read_csv(
+    file.path("data/processed/PSA/PSACR_003/Self_Determination/PSACR_003__Self_Determination__IPD_Level.csv")), 
+  output_folder = file.path("data/processed/PSA/PSACR_003/Self_Determination/"), 
+  suppress_list_output = TRUE)
+
+###
+# keep the global environment tidy
+rm(PSACR_003_data,
+   convert_raw_data_Self_Determination_fun)
+
+```
+
+# 3. rds-Export for IPD
+
+```{r export rds}
+
+## collect all paths in the folder 
+paths_processed <- list.files(path = "./data/processed", 
+                              full.names = TRUE,
+                              recursive = TRUE)
+
+## select paths for IPD 
+paths_IPD <- paths_processed[
+  grep(pattern = "__IPD_Level.csv",
+       x = paths_processed)
+  ]
+
+## select paths for Item Level  
+paths_Item_Level <- paths_processed[
+  grep(pattern = "__Item_Level.csv",
+       x = paths_processed)
+  ]
+
+## import all .csv files
+IPD_list <- list(
+  IPD = lapply(paths_IPD, 
+       function(path){
+         csv <- readr::read_csv(file = path)
+       }), 
+  Item_Level = lapply(paths_Item_Level, 
+       function(path){
+         readr::read_csv(file = path)
+       })
+)
+
+## create vector with names 
+names_processed <- list.files(path = "./data/processed", 
+                              full.names = FALSE,
+                              recursive = TRUE)
+
+## reduce to IPD
+names_IPD <- names_processed[
+  grep(pattern = "__IPD_Level.csv",
+       x = names_processed)
+  ]
+
+## remove level indication
+names_IPD <- stringr::str_remove(string = names_IPD, 
+                                 pattern = "__IPD_Level.csv")
+
+## remove folder names 
+names_IPD <- stringr::str_split_i(string = names_IPD, pattern = "/", i = 3)
+
+## rename list objects 
+names(IPD_list$IPD) <- names_IPD
+names(IPD_list$Item_Level) <- names_IPD
+
+## export list as rds file 
+readr::write_rds(
+  IPD_list, 
+  file = "data/processed/IPD_list.rds"
+)
+
+###
+# keep the global environment tidy
+rm(IPD_list, 
+   names_IPD, 
+   names_processed, 
+   paths_IPD, 
+   paths_Item_Level, 
+   paths_processed)
+
+```
