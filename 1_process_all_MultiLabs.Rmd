@@ -1505,9 +1505,9 @@ utils::unzip(zipfile = RRR_06_download$local_path,
 
 ```
 
-##### ATTENTION: In case of an error, the unzip function might not have worked (for me it actually unzips it, but still produces an error). If the next (!) chunk fails, go to the folder "data/raw/Direct_Replications/RRR_06" and manually unzip "Data_FINAL.zip".
+#### ATTENTION:
 
-##### preprocess raw data
+##### In case of an error, the unzip function might not have worked. The original seems to have been zipped with in a proprietary Microsoft format that produces errors (for example) on Mac when file names have special characters. Therefore, the unzip function fails when it tries to unzip the file "Özdogru_Data.csv". Please navigate to the folder in the repository (data/raw/Direct_Replications/RRR_06), delete the folder "Data" and unzip "Data_FINAL.zip" manually. After you've done that, you can rename the csv to "Özdogru_Data.csv".   Then you can continue running all chunks below. 
 
 ```{r prepare RRR_06 (2/2)}
 

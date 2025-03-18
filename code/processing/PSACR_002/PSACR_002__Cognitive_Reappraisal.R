@@ -57,7 +57,12 @@ convert_raw_data_Cognitive_Reappraisal_fun <- function(data, variable_info = NUL
   ## create numerical condition
   ## control group: "Active Control" and "Passive Control"
   ## treatment group: "Repurposing" and "Reconstrual"
-  d$condition_new <- ifelse(d$condition == "Repurposing", 1, 0) + ifelse(d$condition == "Reconstrual", 1, 0)
+
+  ## The following line would code 0: control and 1: treatment
+  # d$condition_new <- ifelse(d$condition == "Repurposing", 1, 0) + ifelse(d$condition == "Reconstrual", 1, 0)
+  ## To make sure that positive effects represent can be interpreted as being consistent with the hypothesis, the coding is:
+  ## 0: treatment and 1: control
+  d$condition_new <- ifelse(d$condition == "Active Control", 1, 0) + ifelse(d$condition == "Passive Control", 1, 0)
 
   ## create subset for this Data_Collection_Site
   d <- data.frame(MultiLab = rep("PSACR_002", nrow(d)),
