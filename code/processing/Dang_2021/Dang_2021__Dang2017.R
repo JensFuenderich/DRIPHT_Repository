@@ -1,12 +1,17 @@
 #### Convert Raw to Trial Level
-### MultiLab: Dang 2021
-### MASC:
+### MultiLab: Dang et al. 2021
+### MASC: The Ego Could Be Depleted, Providing Initial Exertion Is Depleting (Dang, Liu, Liu, and Mao, 2017)
+
+## More information on the effect may be taken from the "metadata_sheet.csv" (in the root folder of this repository) or the:
+## Main Publication: https://doi.org/10.1177/1948550619887702
+## Repository:https://osf.io/3txav/
 
 ## Type of effect: Experimental
-## DV: ??? Item Likert Scale
+## DV: error rate in 120 trials of an antisaccade task
 
 ### What you need to source this script/ run this function
-### ...
+## If you want to run it as intended for this repository, go to the "1_process_all_MultiLabs.Rmd" and run the chunks for this MultiLab.
+## You can use this function in your own script as well. Make sure to load the packages readr and dplyr.
 
 convert_raw_data_Dang2017_fun <- function(data, variable_info = NULL, output_folder){
 
